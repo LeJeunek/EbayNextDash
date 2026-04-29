@@ -1,0 +1,82 @@
+/* src/app/dashboard/page.module.css */
+.page { display: flex; flex-direction: column; gap: 32px; }
+
+.header { display: flex; align-items: center; justify-content: space-between; }
+
+.greeting {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+.greeting em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.sub { font-size: 14px; color: var(--text-2); margin-top: 4px; }
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 16px;
+  letter-spacing: -0.3px;
+}
+
+.recent {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.empty {
+  color: var(--text-2);
+  font-size: 14px;
+  text-align: center;
+  padding: 24px 0;
+}
+
+.orderList { display: flex; flex-direction: column; gap: 2px; }
+
+.orderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  transition: background 0.12s;
+}
+.orderRow:hover { background: var(--surface-2); }
+
+.orderInfo { display: flex; flex-direction: column; gap: 2px; }
+.orderTitle { font-size: 14px; font-weight: 600; color: var(--text); }
+.orderId { font-size: 11px; color: var(--text-2); font-family: var(--font-mono); }
+
+.orderMeta { display: flex; align-items: center; gap: 16px; }
+.orderPrice { font-weight: 700; font-family: var(--font-mono); font-size: 14px; color: var(--success); }
+.orderDate { font-size: 12px; color: var(--text-2); }
+
+.badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.paid { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+.shipped { background: rgba(79, 142, 247, 0.15); color: var(--accent); }
+.delivered { background: rgba(52, 211, 153, 0.15); color: var(--success); }
+.pending { background: rgba(251, 191, 36, 0.15); color: var(--warning); }
+.cancelled { background: rgba(248, 113, 113, 0.15); color: var(--danger); }
+.refunded { background: rgba(248, 113, 113, 0.15); color: var(--danger); }

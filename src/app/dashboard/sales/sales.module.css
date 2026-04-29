@@ -1,0 +1,41 @@
+/* src/app/dashboard/sales/sales.module.css */
+.page { display: flex; flex-direction: column; gap: 24px; }
+.header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.title { font-size: 26px; font-weight: 800; letter-spacing: -0.5px; }
+.sub { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+
+.rangeSelector { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
+.rangeBtn { padding: 6px 14px; border-radius: 6px; border: none; background: none; color: var(--text-2); font-size: 13px; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: all 0.12s; }
+.rangeBtn.active { background: var(--accent); color: #fff; }
+
+.statsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+
+.statBox {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: 20px; display: flex; flex-direction: column; gap: 8px;
+}
+.statLabel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-2); }
+.statValue { font-size: 22px; font-weight: 800; font-family: var(--font-mono); letter-spacing: -0.5px; }
+
+.chartCard {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 28px;
+}
+.chartHeader { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.chartTitle { font-size: 15px; font-weight: 700; }
+
+.viewToggle { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
+.viewBtn { padding: 5px 12px; border-radius: 5px; border: none; background: none; color: var(--text-2); font-size: 12px; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: all 0.12s; }
+.viewBtn.activeView { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+
+.tooltip {
+  background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.7;
+}
+.tooltipLabel { font-weight: 700; color: var(--text); margin-bottom: 4px; font-family: var(--font-display); }
+
+.loading { display: flex; justify-content: center; padding: 80px 0; }
+.spinner { width: 32px; height: 32px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+.empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 60px 0; color: var(--text-2); font-size: 14px; }
+.empty span { font-size: 48px; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
