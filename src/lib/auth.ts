@@ -34,39 +34,41 @@ export const authOptions: NextAuthOptions = {
           redirect_uri: process.env.EBAY_RUNAME,
         },
       },
-      token: {
-        url: EBAY_TOKEN_URL,
-        async request({ params }) {
-          const credentials = Buffer.from(
-            `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
-          ).toString("base64");
+    token: {
+  url: EBAY_TOKEN_URL,
+  async request({ params }) {
+    const credentials = Buffer.from(
+      `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
+    ).toString("base64");
 
-          const body = new URLSearchParams({
-            grant_type: "authorization_code",
-            code: params.code as string,
-            // eBay token exchange requires the RuName as redirect_uri, NOT the actual URL
-            redirect_uri: process.env.EBAY_RUNAME!,
-          });
+    const body = new URLSearchParams({
+      grant_type: "authorization_code",
+      code: params.code as string,
+      redirect_uri: process.env.EBAY_RUNAME!,
+    });
 
-          const response = await fetch(EBAY_TOKEN_URL, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/x-www-form-urlencoded",
-              Authorization: `Basic ${credentials}`,
-            },
-            body,
-          });
+    // DEBUG - remove after fixing
+    console.log("=== EBAY TOKEN EXCHANGE DEBUG ===");
+    console.log("TOKEN URL:", EBAY_TOKEN_URL);
+    console.log("RUNAME:", process.env.EBAY_RUNAME);
+    console.log("CLIENT_ID:", process.env.EBAY_CLIENT_ID);
+    console.log("CODE:", params.code);
+    console.log("BODY:", body.toString());
 
-          const tokens = await response.json();
-
-          if (!response.ok) {
-            console.error("eBay token exchange failed:", tokens);
-            throw new Error(tokens.error_description || "Token exchange failed");
-          }
-
-          return { tokens };
-        },
+    const response = await fetch(EBAY_TOKEN_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${credentials}`,
       },
+      body,
+    });
+
+    const tokens = await response.json();
+    console.log("EBAY RESPONSE:", JSON.stringify(tokens));
+    return { tokens };
+  },
+},
       userinfo: {
         async request({ tokens }) {
           const apiBase =
