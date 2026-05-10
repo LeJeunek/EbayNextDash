@@ -10,12 +10,46 @@ const EBAY_TOKEN_URL =
   process.env.EBAY_TOKEN_URL ||
   "https://api.sandbox.ebay.com/identity/v1/oauth2/token";
 
-// eBay requires scopes space-separated
+// Scopes must match exactly what is registered in the eBay Developer Portal
+// Copy from: developer.ebay.com/my/keys -> User Tokens -> your RuName -> OAuth URL -> scope param
 const EBAY_SCOPES = [
   "https://api.ebay.com/oauth/api_scope",
+  "https://api.ebay.com/oauth/api_scope/buy.order.readonly",
+  "https://api.ebay.com/oauth/api_scope/buy.guest.order",
+  "https://api.ebay.com/oauth/api_scope/sell.marketing.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.marketing",
+  "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
-  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+  "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
   "https://api.ebay.com/oauth/api_scope/sell.account",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+  "https://api.ebay.com/oauth/api_scope/sell.analytics.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.marketplace.insights.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.catalog.readonly",
+  "https://api.ebay.com/oauth/api_scope/buy.shopping.cart",
+  "https://api.ebay.com/oauth/api_scope/buy.offer.auction",
+  "https://api.ebay.com/oauth/api_scope/commerce.identity.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.identity.email.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.identity.phone.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.identity.address.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.identity.name.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.identity.status.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.finances",
+  "https://api.ebay.com/oauth/api_scope/sell.payment.dispute",
+  "https://api.ebay.com/oauth/api_scope/sell.item.draft",
+  "https://api.ebay.com/oauth/api_scope/sell.item",
+  "https://api.ebay.com/oauth/api_scope/sell.reputation",
+  "https://api.ebay.com/oauth/api_scope/sell.reputation.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription",
+  "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription.readonly",
+  "https://api.ebay.com/oauth/api_scope/sell.stores",
+  "https://api.ebay.com/oauth/api_scope/sell.stores.readonly",
+  "https://api.ebay.com/oauth/api_scope/commerce.vero",
+  "https://api.ebay.com/oauth/api_scope/sell.inventory.mapping",
+  "https://api.ebay.com/oauth/api_scope/commerce.message",
+  "https://api.ebay.com/oauth/api_scope/commerce.feedback",
+  "https://api.ebay.com/oauth/api_scope/commerce.shipping",
 ].join(" ");
 
 export const authOptions: NextAuthOptions = {
@@ -34,41 +68,39 @@ export const authOptions: NextAuthOptions = {
           redirect_uri: process.env.EBAY_RUNAME,
         },
       },
-    token: {
-  url: EBAY_TOKEN_URL,
-  async request({ params }) {
-    const credentials = Buffer.from(
-      `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
-    ).toString("base64");
+      token: {
+        url: EBAY_TOKEN_URL,
+        async request({ params }) {
+          const credentials = Buffer.from(
+            `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
+          ).toString("base64");
 
-    const body = new URLSearchParams({
-      grant_type: "authorization_code",
-      code: params.code as string,
-      redirect_uri: process.env.EBAY_RUNAME!,
-    });
+          const body = new URLSearchParams({
+            grant_type: "authorization_code",
+            code: params.code as string,
+            // eBay token exchange requires the RuName as redirect_uri, NOT the actual URL
+            redirect_uri: process.env.EBAY_RUNAME!,
+          });
 
-    // DEBUG - remove after fixing
-    console.log("=== EBAY TOKEN EXCHANGE DEBUG ===");
-    console.log("TOKEN URL:", EBAY_TOKEN_URL);
-    console.log("RUNAME:", process.env.EBAY_RUNAME);
-    console.log("CLIENT_ID:", process.env.EBAY_CLIENT_ID);
-    console.log("CODE:", params.code);
-    console.log("BODY:", body.toString());
+          const response = await fetch(EBAY_TOKEN_URL, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/x-www-form-urlencoded",
+              Authorization: `Basic ${credentials}`,
+            },
+            body,
+          });
 
-    const response = await fetch(EBAY_TOKEN_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-        Authorization: `Basic ${credentials}`,
+          const tokens = await response.json();
+
+          if (!response.ok) {
+            console.error("eBay token exchange failed:", tokens);
+            throw new Error(tokens.error_description || "Token exchange failed");
+          }
+
+          return { tokens };
+        },
       },
-      body,
-    });
-
-    const tokens = await response.json();
-    console.log("EBAY RESPONSE:", JSON.stringify(tokens));
-    return { tokens };
-  },
-},
       userinfo: {
         async request({ tokens }) {
           const apiBase =
