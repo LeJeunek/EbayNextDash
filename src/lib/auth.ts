@@ -10,6 +10,14 @@ const EBAY_TOKEN_URL =
   process.env.EBAY_TOKEN_URL ||
   "https://api.sandbox.ebay.com/identity/v1/oauth2/token";
 
+// eBay requires scopes space-separated
+const EBAY_SCOPES = [
+  "https://api.ebay.com/oauth/api_scope",
+  "https://api.ebay.com/oauth/api_scope/sell.inventory",
+  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
+  "https://api.ebay.com/oauth/api_scope/sell.account",
+].join(" ");
+
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   providers: [
@@ -20,17 +28,25 @@ export const authOptions: NextAuthOptions = {
       authorization: {
         url: EBAY_AUTH_URL,
         params: {
-          scope:
-            "https://api.ebay.com/oauth/api_scope https://api.ebay.com/oauth/api_scope/sell.inventory https://api.ebay.com/oauth/api_scope/sell.fulfillment https://api.ebay.com/oauth/api_scope/sell.account",
+          scope: EBAY_SCOPES,
           response_type: "code",
+          // Must match the RuName registered in eBay developer portal
+          redirect_uri: process.env.EBAY_RUNAME,
         },
       },
       token: {
         url: EBAY_TOKEN_URL,
-        async request({ client, params, checks, provider }) {
+        async request({ params }) {
           const credentials = Buffer.from(
             `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
           ).toString("base64");
+
+          const body = new URLSearchParams({
+            grant_type: "authorization_code",
+            code: params.code as string,
+            // eBay token exchange requires the RuName as redirect_uri, NOT the actual URL
+            redirect_uri: process.env.EBAY_RUNAME!,
+          });
 
           const response = await fetch(EBAY_TOKEN_URL, {
             method: "POST",
@@ -38,14 +54,16 @@ export const authOptions: NextAuthOptions = {
               "Content-Type": "application/x-www-form-urlencoded",
               Authorization: `Basic ${credentials}`,
             },
-            body: new URLSearchParams({
-              grant_type: "authorization_code",
-              code: params.code as string,
-              redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/ebay`,
-            }),
+            body,
           });
 
           const tokens = await response.json();
+
+          if (!response.ok) {
+            console.error("eBay token exchange failed:", tokens);
+            throw new Error(tokens.error_description || "Token exchange failed");
+          }
+
           return { tokens };
         },
       },
