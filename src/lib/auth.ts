@@ -4,8 +4,7 @@ import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "./prisma";
 
 const EBAY_AUTH_URL =
-  process.env.EBAY_AUTH_URL ||
-  "https://auth.sandbox.ebay.com/oauth2/authorize";
+  process.env.EBAY_AUTH_URL || "https://auth.sandbox.ebay.com/oauth2/authorize";
 const EBAY_TOKEN_URL =
   process.env.EBAY_TOKEN_URL ||
   "https://api.sandbox.ebay.com/identity/v1/oauth2/token";
@@ -72,15 +71,25 @@ export const authOptions: NextAuthOptions = {
         url: EBAY_TOKEN_URL,
         async request({ params }) {
           const credentials = Buffer.from(
-            `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
+            `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`,
           ).toString("base64");
 
           const body = new URLSearchParams({
             grant_type: "authorization_code",
             code: params.code as string,
-            // eBay token exchange requires the RuName as redirect_uri, NOT the actual URL
             redirect_uri: process.env.EBAY_RUNAME!,
           });
+
+          // DEBUG LOGGING
+          console.log("=== EBAY TOKEN EXCHANGE DEBUG ===");
+          console.log("RUNAME:", process.env.EBAY_RUNAME);
+          console.log("CLIENT_ID:", process.env.EBAY_CLIENT_ID);
+          console.log(
+            "CLIENT_SECRET length:",
+            process.env.EBAY_CLIENT_SECRET?.length,
+          );
+          console.log("CODE (first 20 chars):", params.code?.slice(0, 20));
+          console.log("BODY:", body.toString());
 
           const response = await fetch(EBAY_TOKEN_URL, {
             method: "POST",
@@ -92,10 +101,14 @@ export const authOptions: NextAuthOptions = {
           });
 
           const tokens = await response.json();
+          console.log("EBAY RESPONSE STATUS:", response.status);
+          console.log("EBAY RESPONSE:", JSON.stringify(tokens));
 
           if (!response.ok) {
             console.error("eBay token exchange failed:", tokens);
-            throw new Error(tokens.error_description || "Token exchange failed");
+            throw new Error(
+              tokens.error_description || "Token exchange failed",
+            );
           }
 
           return { tokens };
@@ -112,7 +125,7 @@ export const authOptions: NextAuthOptions = {
                 Authorization: `Bearer ${tokens.access_token}`,
                 "Content-Type": "application/json",
               },
-            }
+            },
           );
           const profile = await response.json();
           return profile;
@@ -126,9 +139,7 @@ export const authOptions: NextAuthOptions = {
             profile.individualAccount?.name?.lastName
               ? `${profile.individualAccount.name.firstName} ${profile.individualAccount.name.lastName}`
               : profile.username,
-          email:
-            profile.email ||
-            `${profile.username}@ebay-user.placeholder`,
+          email: profile.email || `${profile.username}@ebay-user.placeholder`,
           image: null,
           ebayUserId: profile.userId,
           ebayUsername: profile.username,
