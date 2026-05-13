@@ -6,6 +6,8 @@ import { startOfDay, subDays } from "date-fns";
 import { StatCard } from "@/components/StatCard";
 import styles from "./page.module.css";
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
   const userId = session!.user.id;
