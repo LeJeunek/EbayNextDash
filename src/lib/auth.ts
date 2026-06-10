@@ -60,14 +60,12 @@ export const authOptions: NextAuthOptions = {
       name: "eBay",
       type: "oauth",
       authorization: {
-        url: EBAY_AUTH_URL,
-        params: {
-          scope: EBAY_SCOPES,
-          response_type: "code",
-          // Authorization endpoint needs the actual callback URL
-          redirect_uri: `${process.env.NEXTAUTH_URL}/api/auth/callback/ebay`,
-        },
-      },
+  url: EBAY_AUTH_URL,
+  params: {
+    scope: EBAY_SCOPES,
+    response_type: "code",
+  },
+},
       token: {
         url: EBAY_TOKEN_URL,
         async request({ params }) {
