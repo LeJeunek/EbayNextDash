@@ -27,6 +27,7 @@ export default function ListingsPage() {
     condition: "NEW", imageUrl: "", category: "",
   });
   const [saving, setSaving] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const load = async (sync = false) => {
     if (sync) setSyncing(true);
@@ -34,6 +35,8 @@ export default function ListingsPage() {
     const res = await fetch(`/api/listings${sync ? "?sync=true" : ""}`);
     const data = await res.json();
     setListings(data.listings || []);
+    // A failed eBay sync used to be silent: the list just came back unchanged.
+    setSyncError(data.syncError || null);
     setLoading(false);
     setSyncing(false);
   };
@@ -43,12 +46,14 @@ export default function ListingsPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    await fetch("/api/listings", {
+    const res = await fetch("/api/listings", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, price: parseFloat(form.price), quantity: parseInt(form.quantity) }),
     });
     setForm({ title: "", description: "", price: "", quantity: "1", condition: "NEW", imageUrl: "", category: "" });
+    const data = await res.json().catch(() => ({}));
+    setSyncError(data.ebayError || null);
     setShowForm(false);
     setSaving(false);
     load();
@@ -80,6 +85,13 @@ export default function ListingsPage() {
           </button>
         </div>
       </header>
+
+      {syncError && (
+        <div className={styles.syncError}>
+          <span>⚠ {syncError}</span>
+          <button onClick={() => setSyncError(null)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
 
       {showForm && (
         <form className={styles.form} onSubmit={handleCreate}>

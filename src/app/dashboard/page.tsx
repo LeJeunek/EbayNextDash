@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { startOfDay, subDays } from "date-fns";
+import { summarize, withProfit } from "@/lib/inventory";
 import { StatCard } from "@/components/StatCard";
 import styles from "./page.module.css";
 
@@ -14,11 +15,15 @@ export default async function DashboardPage() {
 
   const since30 = startOfDay(subDays(new Date(), 29));
 
+  // The tax year the ledger summary on this page reports on.
+  const yearStart = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
+
   const [
     activeListings,
     totalOrders,
     recentOrders,
     salesData,
+    inventoryYtd,
   ] = await Promise.all([
     prisma.listing.count({ where: { userId, status: "ACTIVE" } }),
     prisma.order.count({ where: { userId } }),
@@ -32,10 +37,14 @@ export default async function DashboardPage() {
       take: 5,
       select: { orderId: true, itemTitle: true, salePrice: true, status: true, saleDate: true },
     }),
+    prisma.inventoryItem.findMany({
+      where: { userId, soldDate: { gte: yearStart } },
+    }),
   ]);
 
   const revenue30 = recentOrders.reduce((s, o) => s + o.salePrice, 0);
   const profit30 = recentOrders.reduce((s, o) => s + o.profit, 0);
+  const ledger = summarize(inventoryYtd.map(withProfit));
 
   return (
     <div className={styles.page}>
@@ -76,6 +85,13 @@ export default async function DashboardPage() {
           icon="📈"
           accent="yellow"
           href="/dashboard/sales"
+        />
+        <StatCard
+          label={`${yearStart.getUTCFullYear()} Tracked Profit`}
+          value={`$${ledger.netProfit.toFixed(2)}`}
+          icon="🧮"
+          accent="green"
+          href="/dashboard/inventory"
         />
       </div>
 

@@ -47,6 +47,7 @@ model User {
   sessions      Session[]
   listings      Listing[]
   orders        Order[]
+  inventory     InventoryItem[]
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 }
@@ -133,4 +134,55 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
+}
+
+/// Hand-managed inventory ledger: one row per item you bought to resell.
+/// Independent of the eBay sync so rows can be added/edited by hand, but
+/// optionally linked back to an eBay listing or order.
+model InventoryItem {
+  id           String          @id @default(cuid())
+  userId       String
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  title        String
+  sku          String?
+  category     String?
+  condition    String?
+  notes        String?         @db.Text
+
+  // Where it came from
+  purchaseDate DateTime?
+  source       String?
+
+  // Money in / money out. Profit is derived, never stored, so it can
+  // never drift out of sync with the numbers it is computed from.
+  originalCost Float           @default(0)
+  sellPrice    Float?
+  packingCost  Float           @default(0)
+  shippingCost Float           @default(0)
+  ebayFee      Float           @default(0)
+  otherCost    Float           @default(0)
+
+  status       InventoryStatus @default(LISTED)
+  listedDate   DateTime?
+  soldDate     DateTime?
+
+  // Optional links back to synced eBay records
+  ebayListingId String?
+  ebayOrderId   String?
+
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([userId, status])
+  @@index([userId, soldDate])
+}
+
+enum InventoryStatus {
+  DRAFT
+  LISTED
+  SOLD
+  RETURNED
+  UNSOLD
 }

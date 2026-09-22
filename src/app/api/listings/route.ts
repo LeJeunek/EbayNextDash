@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
   const sync = searchParams.get("sync") === "true";
 
   // Optionally sync from eBay API first
+  let syncError: string | null = null;
   if (sync && session.accessToken) {
     try {
       const client = new EbayApiClient(session.accessToken);
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
                 userId: session.user.id,
                 title: item.product?.title || item.sku,
                 description: item.product?.description || null,
-                price: item.offers?.[0]?.pricingSummary?.price?.value || 0,
+                price: parseFloat(item.offers?.[0]?.pricingSummary?.price?.value) || 0,
                 quantity: item.availability?.shipToLocationAvailability?.quantity || 0,
                 status: "ACTIVE",
                 imageUrl: item.product?.imageUrls?.[0] || null,
@@ -48,7 +49,10 @@ export async function GET(req: NextRequest) {
       }
     } catch (err) {
       console.error("eBay sync error:", err);
+      syncError = err instanceof Error ? err.message : "eBay sync failed";
     }
+  } else if (sync) {
+    syncError = "No eBay access token on this session — sign in again.";
   }
 
   const listings = await prisma.listing.findMany({
@@ -62,7 +66,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ listings });
+  return NextResponse.json({ listings, ...(syncError ? { syncError } : {}) });
 }
 
 // POST /api/listings - create a new listing
@@ -87,6 +91,7 @@ export async function POST(req: NextRequest) {
 
   // Push to eBay API if token available
   let ebayListingId = sku;
+  let ebayError: string | null = null;
   if (session.accessToken) {
     try {
       const client = new EbayApiClient(session.accessToken);
@@ -105,7 +110,8 @@ export async function POST(req: NextRequest) {
       ebayListingId = sku;
     } catch (err) {
       console.error("eBay create listing error:", err);
-      // Fall through — still save locally
+      // Fall through — still save locally, but say so.
+      ebayError = err instanceof Error ? err.message : "eBay listing push failed";
     }
   }
 
@@ -124,5 +130,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ listing }, { status: 201 });
+  return NextResponse.json(
+    { listing, ...(ebayError ? { ebayError } : {}) },
+    { status: 201 }
+  );
 }

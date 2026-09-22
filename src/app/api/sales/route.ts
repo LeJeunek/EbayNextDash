@@ -11,7 +11,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const days = parseInt(searchParams.get("days") || "30");
+  const parsedDays = parseInt(searchParams.get("days") || "30", 10);
+  const days = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 30;
 
   const since = startOfDay(subDays(new Date(), days - 1));
   const today = new Date();

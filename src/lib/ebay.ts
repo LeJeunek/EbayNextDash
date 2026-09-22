@@ -73,7 +73,7 @@ export class EbayApiClient {
   async getRecentOrders(days = 30) {
     const since = new Date();
     since.setDate(since.getDate() - days);
-    const filter = `lastmodifieddate:[${since.toISOString()}..]}`;
+    const filter = `lastmodifieddate:[${since.toISOString()}..]`;
     return this.getOrders(filter, 200);
   }
 
