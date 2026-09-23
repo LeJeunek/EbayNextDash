@@ -140,7 +140,17 @@ export const authOptions: NextAuthOptions = {
             throw new Error(tokens.error_description || "Token exchange failed");
           }
 
-          return { tokens };
+          // Keep only the fields the Account model stores. eBay's response also
+          // carries refresh_token_expires_in, and NextAuth spreads every token
+          // field into the Account row. With no such column, Prisma rejects the
+          // insert — but only AFTER createUser has run, which leaves a User with
+          // no Account. Every later sign-in then finds that user by email and
+          // fails with OAuthAccountNotLinked, so one bad attempt locks the
+          // account out for good.
+          const { access_token, refresh_token, expires_in, token_type } = tokens;
+          return {
+            tokens: { access_token, refresh_token, expires_in, token_type },
+          };
         },
       },
       userinfo: {
