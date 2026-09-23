@@ -6,7 +6,7 @@
 
 .rangeSelector { display: flex; gap: 4px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 4px; }
 .rangeBtn { padding: 6px 14px; border-radius: 6px; border: none; background: none; color: var(--text-2); font-size: 13px; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: all 0.12s; }
-.rangeBtn.active { background: var(--accent); color: #fff; }
+.rangeBtn.active { background: var(--accent); color: var(--accent-fg); }
 
 .statsGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
 
@@ -25,7 +25,7 @@
 
 .viewToggle { display: flex; gap: 4px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 3px; }
 .viewBtn { padding: 5px 12px; border-radius: 5px; border: none; background: none; color: var(--text-2); font-size: 12px; font-weight: 600; font-family: var(--font-display); cursor: pointer; transition: all 0.12s; }
-.viewBtn.activeView { background: var(--surface); color: var(--text); box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+.viewBtn.activeView { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
 
 .tooltip {
   background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px;

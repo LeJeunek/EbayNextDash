@@ -17,22 +17,21 @@
   transition: border-color 0.15s, background 0.15s;
 }
 .ghostBtn { background: var(--surface-2); color: var(--text-2); }
-.ghostBtn:hover:not(:disabled) { border-color: var(--border-light); color: var(--text); }
+.ghostBtn:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
 .ghostBtn:disabled { opacity: 0.5; cursor: not-allowed; }
-.printBtn { background: var(--surface-2); color: var(--accent-2); border-color: var(--accent-2); }
-.printBtn:hover { background: rgba(167, 139, 250, 0.12); }
-.createBtn { background: var(--accent); color: #fff; border-color: var(--accent); }
-.createBtn:hover { filter: brightness(1.1); }
+.printBtn { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+.printBtn:hover { background: var(--surface-2); }
+.createBtn { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.createBtn:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
 .submitBtn {
-  background: var(--accent); color: #fff; border-color: var(--accent);
+  background: var(--accent); color: var(--accent-fg); border-color: var(--accent);
   margin-top: 16px; padding: 11px 20px;
 }
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .message {
   display: flex; justify-content: space-between; align-items: center; gap: 16px;
-  background: var(--surface-2); border: 1px solid var(--border-light);
-  border-left: 3px solid var(--accent);
+  background: var(--info-subtle); border: 1px solid var(--border-strong);
   border-radius: var(--radius); padding: 12px 16px;
   font-size: 13px; margin-bottom: 20px;
 }
@@ -48,8 +47,8 @@
   border-radius: var(--radius-lg); padding: 16px 18px;
   display: flex; flex-direction: column; gap: 4px;
 }
-.goodTile { border-color: var(--success); background: rgba(52, 211, 153, 0.06); }
-.badTile { border-color: var(--danger); background: rgba(248, 113, 113, 0.06); }
+.goodTile { border-color: var(--success); background: var(--success-subtle); }
+.badTile { border-color: var(--danger); background: var(--danger-subtle); }
 .tileLabel {
   font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
   color: var(--text-2); font-weight: 600;
@@ -139,7 +138,7 @@
 }
 .cellWide { min-width: 190px; font-family: var(--font-display); }
 .cell:hover { border-color: var(--border); }
-.cell:focus { border-color: var(--accent); background: var(--bg); box-shadow: 0 0 0 3px var(--accent-glow); }
+.cell:focus { border-color: var(--accent); background: var(--bg); outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .statusSelect {
   font-size: 11px; font-weight: 700; letter-spacing: 0.04em;
@@ -147,7 +146,7 @@
   background: var(--surface-2); border-radius: 6px;
 }
 .draft { color: var(--warning); }
-.listed { color: var(--accent); }
+.listed { color: var(--info); }
 .sold { color: var(--success); }
 .returned { color: var(--danger); }
 .unsold { color: var(--text-2); }
@@ -160,11 +159,11 @@
   background: none; border: none; color: var(--text-2);
   font-size: 13px; padding: 6px 8px; border-radius: 6px; line-height: 1;
 }
-.rowDelete:hover { color: var(--danger); background: rgba(248, 113, 113, 0.1); }
+.rowDelete:hover { color: var(--danger); background: var(--danger-subtle); }
 
 .table tfoot td {
   position: sticky; bottom: 0;
-  background: var(--surface-2); border-top: 1px solid var(--border-light);
+  background: var(--surface-2); border-top: 1px solid var(--border-strong);
   font-weight: 700; padding: 14px 10px; font-size: 13px;
 }
 .table tfoot .stickyCol,
