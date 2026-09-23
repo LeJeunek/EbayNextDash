@@ -87,6 +87,18 @@ EBAY_API_BASE="https://api.sandbox.ebay.com"
 
 ### 5. Run Database Migrations
 
+> **The Prisma CLI reads `.env`, not `.env.local`.** Next.js reads
+> `.env.local`, so the two need the connection string in different places.
+> Without a `.env`, `db:push` fails with
+> `P1012: Environment variable not found: DATABASE_URL` even though the app
+> itself runs fine. Simplest fix — give the CLI its own file:
+>
+> ```bash
+> echo 'DATABASE_URL="<same value as in .env.local>"' > .env
+> ```
+>
+> Both files are gitignored.
+
 ```bash
 npm run db:generate   # Generate Prisma client
 npm run db:push       # Push schema to database
