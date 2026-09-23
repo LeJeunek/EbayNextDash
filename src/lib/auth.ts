@@ -10,6 +10,18 @@ const EBAY_TOKEN_URL =
   process.env.EBAY_TOKEN_URL ||
   "https://api.sandbox.ebay.com/identity/v1/oauth2/token";
 
+// eBay serves the Identity API from apiz.*, not api.* — it splits its REST
+// APIs across the two hosts. Deriving the URL from EBAY_API_BASE sent the
+// request to a host that does not serve this API, and the empty response
+// surfaced only as "Unexpected end of JSON input". EBAY_IDENTITY_API_BASE
+// overrides the derived value if eBay ever moves it.
+const EBAY_IDENTITY_API_BASE =
+  process.env.EBAY_IDENTITY_API_BASE ||
+  (process.env.EBAY_API_BASE || "https://api.sandbox.ebay.com").replace(
+    "://api.",
+    "://apiz."
+  );
+
 // Only the scopes this app actually calls. eBay rejects the whole
 // authorize request with a 400 if ANY requested scope is not enabled for
 // your app in the developer portal, and several scopes (commerce.vero,
@@ -85,8 +97,35 @@ console.info(
       : { set: false },
     EBAY_RUNAME: EBAY_RUNAME ? { set: true, length: EBAY_RUNAME.length } : { set: false },
     EBAY_TOKEN_URL,
+    EBAY_IDENTITY_API_BASE,
   })
 );
+
+/**
+ * Parse a JSON response body, failing with the status and URL when it is
+ * empty or not JSON. response.json() on an empty body throws a SyntaxError
+ * that names neither, which is how a wrong host went unnoticed here.
+ * Pass logBody: false for responses that may carry credentials.
+ */
+async function readJson(
+  response: Response,
+  what: string,
+  { logBody = true }: { logBody?: boolean } = {}
+): Promise<any> {
+  const text = await response.text();
+  if (!text) {
+    const msg = `${what}: empty ${response.status} response from ${response.url}`;
+    console.error(`[auth] ${msg}`);
+    throw new Error(msg);
+  }
+  try {
+    return JSON.parse(text);
+  } catch {
+    const msg = `${what}: non-JSON ${response.status} response from ${response.url}`;
+    console.error(`[auth] ${msg}`, logBody ? text.slice(0, 500) : `(${text.length} bytes)`);
+    throw new Error(msg);
+  }
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -133,7 +172,9 @@ export const authOptions: NextAuthOptions = {
             body,
           });
 
-          const tokens = await response.json();
+          const tokens = await readJson(response, "eBay token exchange", {
+            logBody: false,
+          });
 
           if (!response.ok) {
             console.error("eBay token exchange failed:", tokens);
@@ -155,10 +196,8 @@ export const authOptions: NextAuthOptions = {
       },
       userinfo: {
         async request({ tokens }) {
-          const apiBase =
-            process.env.EBAY_API_BASE || "https://api.sandbox.ebay.com";
           const response = await fetch(
-            `${apiBase}/commerce/identity/v1/user/`,
+            `${EBAY_IDENTITY_API_BASE}/commerce/identity/v1/user/`,
             {
               headers: {
                 Authorization: `Bearer ${tokens.access_token}`,
@@ -166,7 +205,7 @@ export const authOptions: NextAuthOptions = {
               },
             }
           );
-          const profile = await response.json();
+          const profile = await readJson(response, "eBay identity lookup");
 
           if (!response.ok) {
             console.error(
