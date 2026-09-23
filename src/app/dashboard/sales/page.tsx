@@ -82,7 +82,7 @@ export default function SalesPage() {
       {summary && (
         <div className={styles.statsGrid}>
           <StatBox label="Total Revenue" value={`$${summary.totalRevenue.toFixed(2)}`} accent="blue" />
-          <StatBox label="Total Profit" value={`$${summary.totalProfit.toFixed(2)}`} accent="green" />
+          <StatBox label="Total Profit" value={`$${summary.totalProfit.toFixed(2)}`} accent={summary.totalProfit >= 0 ? "green" : "red"} />
           <StatBox label="Profit Margin" value={`${summary.profitMargin}%`} accent="purple" />
           <StatBox label="eBay Fees" value={`$${summary.totalFees.toFixed(2)}`} accent="red" />
           <StatBox label="Orders" value={summary.totalOrders.toString()} accent="yellow" />
@@ -110,33 +110,23 @@ export default function SalesPage() {
           <ResponsiveContainer width="100%" height={320}>
             {view === "area" ? (
               <AreaChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-                <defs>
-                  <linearGradient id="revenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#4f8ef7" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#4f8ef7" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="profit" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#34d399" stopOpacity={0.3} />
-                    <stop offset="100%" stopColor="#34d399" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis dataKey="label" tick={{ fill: "var(--text-2)", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--text-2)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-2)" }} />
-                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="#4f8ef7" strokeWidth={2} fill="url(#revenue)" />
-                <Area type="monotone" dataKey="profit" name="Profit" stroke="#34d399" strokeWidth={2} fill="url(#profit)" />
+                <Area type="monotone" dataKey="revenue" name="Revenue" stroke="var(--chart-1)" strokeWidth={2} fill="var(--chart-1)" fillOpacity={0.12} />
+                <Area type="monotone" dataKey="profit" name="Profit" stroke="var(--chart-2)" strokeWidth={2} fill="var(--chart-2)" fillOpacity={0.12} />
               </AreaChart>
             ) : (
               <BarChart data={chartData} margin={{ top: 10, right: 10, bottom: 0, left: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <CartesianGrid vertical={false} stroke="var(--border)" />
                 <XAxis dataKey="label" tick={{ fill: "var(--text-2)", fontSize: 11 }} axisLine={false} tickLine={false} />
                 <YAxis tick={{ fill: "var(--text-2)", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `$${v}`} />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 12, color: "var(--text-2)" }} />
-                <Bar dataKey="revenue" name="Revenue" fill="#4f8ef7" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="profit" name="Profit" fill="#34d399" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="revenue" name="Revenue" fill="var(--chart-1)" radius={[2, 2, 0, 0]} />
+                <Bar dataKey="profit" name="Profit" fill="var(--chart-2)" radius={[2, 2, 0, 0]} />
               </BarChart>
             )}
           </ResponsiveContainer>
@@ -147,14 +137,12 @@ export default function SalesPage() {
 }
 
 function StatBox({ label, value, accent }: { label: string; value: string; accent: string }) {
-  const colors: Record<string, string> = {
-    blue: "var(--accent)", green: "var(--success)", purple: "var(--accent-2)",
-    red: "var(--danger)", yellow: "var(--warning)",
-  };
+  // Only gains and losses get color; everything else reads as plain text.
+  const colors: Record<string, string> = { green: "var(--success)", red: "var(--danger)" };
   return (
-    <div className={styles.statBox} style={{ borderColor: colors[accent] + "33" }}>
+    <div className={styles.statBox}>
       <p className={styles.statLabel}>{label}</p>
-      <p className={styles.statValue} style={{ color: colors[accent] }}>{value}</p>
+      <p className={styles.statValue} style={{ color: colors[accent] ?? "var(--text)" }}>{value}</p>
     </div>
   );
 }

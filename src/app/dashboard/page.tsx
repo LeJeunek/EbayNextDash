@@ -76,21 +76,21 @@ export default async function DashboardPage() {
           label="30-Day Revenue"
           value={`$${revenue30.toFixed(2)}`}
           icon="💰"
-          accent="green"
+          accent="blue"
           href="/dashboard/sales"
         />
         <StatCard
           label="30-Day Profit"
           value={`$${profit30.toFixed(2)}`}
           icon="📈"
-          accent="yellow"
+          accent={profit30 >= 0 ? "green" : "red"}
           href="/dashboard/sales"
         />
         <StatCard
           label={`${yearStart.getUTCFullYear()} Tracked Profit`}
           value={`$${ledger.netProfit.toFixed(2)}`}
           icon="🧮"
-          accent="green"
+          accent={ledger.netProfit >= 0 ? "green" : "red"}
           href="/dashboard/inventory"
         />
       </div>

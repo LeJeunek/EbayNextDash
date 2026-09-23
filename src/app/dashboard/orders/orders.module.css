@@ -44,7 +44,7 @@
 .tableRow:last-child { border-bottom: none; }
 .tableRow:hover { background: var(--surface-2); }
 
-.orderId { font-family: var(--font-mono); font-size: 12px; color: var(--accent); }
+.orderId { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); }
 .itemTitle { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .buyer { color: var(--text-2); font-size: 12px; }
 .price { font-family: var(--font-mono); font-weight: 700; }
@@ -53,23 +53,23 @@
 .neg { color: var(--danger); }
 .date { color: var(--text-2); font-size: 12px; }
 
-.badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; }
-.green { background: rgba(52,211,153,0.15); color: var(--success); }
-.blue { background: rgba(79,142,247,0.15); color: var(--accent); }
-.purple { background: rgba(167,139,250,0.15); color: var(--accent-2); }
-.yellow { background: rgba(251,191,36,0.15); color: var(--warning); }
-.red { background: rgba(248,113,113,0.15); color: var(--danger); }
+.badge { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
+.green { background: var(--success-subtle); color: var(--success); }
+.blue { background: var(--info-subtle); color: var(--info); }
+.purple { background: var(--surface-2); color: var(--text-2); }
+.yellow { background: var(--warning-subtle); color: var(--warning); }
+.red { background: var(--danger-subtle); color: var(--danger); }
 
 /* Drawer */
 .overlay {
-  position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+  position: fixed; inset: 0; background: rgba(0,0,0,0.3);
   display: flex; justify-content: flex-end; z-index: 100;
   animation: fadeIn 0.15s ease;
 }
 .drawer {
   width: 400px; background: var(--surface); height: 100%;
   overflow-y: auto; animation: slideIn 0.2s ease;
-  box-shadow: -8px 0 40px rgba(0,0,0,0.5);
+  box-shadow: var(--shadow); border-left: 1px solid var(--border);
 }
 .drawerHeader {
   display: flex; align-items: center; justify-content: space-between;

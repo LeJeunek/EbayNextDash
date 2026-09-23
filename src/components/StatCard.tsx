@@ -1,4 +1,5 @@
 // src/components/StatCard.tsx
+import type { CSSProperties } from "react";
 import Link from "next/link";
 import styles from "./StatCard.module.css";
 
@@ -10,18 +11,18 @@ type Props = {
   href?: string;
 };
 
-const ACCENT_COLORS = {
-  blue: "var(--accent)",
+// Cards stay neutral. Only a value that carries meaning gets color:
+// "green" = gain/profit, "red" = loss. Other accents render neutral and are
+// kept only so existing call sites still type-check.
+const VALUE_COLORS: Partial<Record<Props["accent"], string>> = {
   green: "var(--success)",
-  purple: "var(--accent-2)",
-  yellow: "var(--warning)",
   red: "var(--danger)",
 };
 
 export function StatCard({ label, value, icon, accent, href }: Props) {
-  const color = ACCENT_COLORS[accent];
+  const color = VALUE_COLORS[accent];
   const inner = (
-    <div className={styles.card} style={{ "--accent-color": color } as any}>
+    <div className={styles.card} style={color ? ({ "--value-color": color } as CSSProperties) : undefined}>
       <div className={styles.iconWrap}>
         <span className={styles.icon}>{icon}</span>
       </div>
@@ -29,7 +30,6 @@ export function StatCard({ label, value, icon, accent, href }: Props) {
         <p className={styles.label}>{label}</p>
         <p className={styles.value}>{value}</p>
       </div>
-      <div className={styles.bar} />
     </div>
   );
 

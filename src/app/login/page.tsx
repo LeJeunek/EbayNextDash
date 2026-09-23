@@ -29,25 +29,12 @@ export default function LoginPage() {
 
   return (
     <div className={styles.page}>
-      {/* Animated background grid */}
-      <div className={styles.grid} aria-hidden />
-      <div className={styles.glow1} aria-hidden />
-      <div className={styles.glow2} aria-hidden />
-
       <main className={styles.card}>
-        {/* eBay-inspired multicolor stripe */}
-        <div className={styles.stripe} aria-hidden>
-          <span style={{ background: "var(--ebay-blue)" }} />
-          <span style={{ background: "var(--ebay-red)" }} />
-          <span style={{ background: "var(--ebay-yellow)" }} />
-          <span style={{ background: "var(--ebay-green)" }} />
-        </div>
-
         <div className={styles.logo}>
           <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <rect width="40" height="40" rx="10" fill="var(--accent)" opacity="0.15" />
+            <rect width="40" height="40" rx="8" fill="var(--surface-2)" />
             <path d="M8 20L14 14L20 20L26 14L32 20" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8 26L14 20L20 26L26 20L32 26" stroke="var(--accent-2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M8 26L14 20L20 26L26 20L32 26" stroke="var(--text-2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span className={styles.logoText}>SellerHub</span>
         </div>

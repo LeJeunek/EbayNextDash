@@ -27,9 +27,9 @@ export function Sidebar({ user }: { user: User }) {
     <nav className={styles.sidebar}>
       <div className={styles.logo}>
         <svg width="28" height="28" viewBox="0 0 40 40" fill="none">
-          <rect width="40" height="40" rx="10" fill="var(--accent)" opacity="0.15" />
+          <rect width="40" height="40" rx="8" fill="var(--surface-2)" />
           <path d="M8 20L14 14L20 20L26 14L32 20" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          <path d="M8 26L14 20L20 26L26 20L32 26" stroke="var(--accent-2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 26L14 20L20 26L26 20L32 26" stroke="var(--text-2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
         <span className={styles.logoText}>SellerHub</span>
       </div>
@@ -42,10 +42,10 @@ export function Sidebar({ user }: { user: User }) {
               key={item.href}
               href={item.href}
               className={`${styles.navItem} ${active ? styles.active : ""}`}
+              aria-current={active ? "page" : undefined}
             >
               <span className={styles.navIcon}>{item.icon}</span>
               <span>{item.label}</span>
-              {active && <span className={styles.indicator} />}
             </Link>
           );
         })}
