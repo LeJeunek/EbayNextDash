@@ -10,47 +10,40 @@ const EBAY_TOKEN_URL =
   process.env.EBAY_TOKEN_URL ||
   "https://api.sandbox.ebay.com/identity/v1/oauth2/token";
 
-// Scopes must match exactly what is registered in the eBay Developer Portal
-// Copy from: developer.ebay.com/my/keys -> User Tokens -> your RuName -> OAuth URL -> scope param
-const EBAY_SCOPES = [
+// Only the scopes this app actually calls. eBay rejects the whole
+// authorize request with a 400 if ANY requested scope is not enabled for
+// your app in the developer portal, and several scopes (commerce.vero,
+// sell.payment.dispute, commerce.message, sell.stores) need separate
+// approval — so asking for everything is a reliable way to get locked out.
+//
+//   api_scope                  base, required
+//   sell.inventory             /sell/inventory/v1/... (read + write)
+//   sell.fulfillment.readonly  /sell/fulfillment/v1/order (read only)
+//   sell.account.readonly      /sell/account/v1/privilege
+//   commerce.identity.readonly /commerce/identity/v1/user (username)
+//
+// Note these are always api.ebay.com URLs, even against sandbox.
+// Override with EBAY_SCOPES (space-separated) if your app needs more.
+const DEFAULT_EBAY_SCOPES = [
   "https://api.ebay.com/oauth/api_scope",
-  "https://api.ebay.com/oauth/api_scope/buy.order.readonly",
-  "https://api.ebay.com/oauth/api_scope/buy.guest.order",
-  "https://api.ebay.com/oauth/api_scope/sell.marketing.readonly",
-  "https://api.ebay.com/oauth/api_scope/sell.marketing",
-  "https://api.ebay.com/oauth/api_scope/sell.inventory.readonly",
   "https://api.ebay.com/oauth/api_scope/sell.inventory",
-  "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
-  "https://api.ebay.com/oauth/api_scope/sell.account",
   "https://api.ebay.com/oauth/api_scope/sell.fulfillment.readonly",
-  "https://api.ebay.com/oauth/api_scope/sell.fulfillment",
-  "https://api.ebay.com/oauth/api_scope/sell.analytics.readonly",
-  "https://api.ebay.com/oauth/api_scope/sell.marketplace.insights.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.catalog.readonly",
-  "https://api.ebay.com/oauth/api_scope/buy.shopping.cart",
-  "https://api.ebay.com/oauth/api_scope/buy.offer.auction",
+  "https://api.ebay.com/oauth/api_scope/sell.account.readonly",
   "https://api.ebay.com/oauth/api_scope/commerce.identity.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.identity.email.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.identity.phone.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.identity.address.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.identity.name.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.identity.status.readonly",
-  "https://api.ebay.com/oauth/api_scope/sell.finances",
-  "https://api.ebay.com/oauth/api_scope/sell.payment.dispute",
-  "https://api.ebay.com/oauth/api_scope/sell.item.draft",
-  "https://api.ebay.com/oauth/api_scope/sell.item",
-  "https://api.ebay.com/oauth/api_scope/sell.reputation",
-  "https://api.ebay.com/oauth/api_scope/sell.reputation.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription",
-  "https://api.ebay.com/oauth/api_scope/commerce.notification.subscription.readonly",
-  "https://api.ebay.com/oauth/api_scope/sell.stores",
-  "https://api.ebay.com/oauth/api_scope/sell.stores.readonly",
-  "https://api.ebay.com/oauth/api_scope/commerce.vero",
-  "https://api.ebay.com/oauth/api_scope/sell.inventory.mapping",
-  "https://api.ebay.com/oauth/api_scope/commerce.message",
-  "https://api.ebay.com/oauth/api_scope/commerce.feedback",
-  "https://api.ebay.com/oauth/api_scope/commerce.shipping",
 ].join(" ");
+
+const EBAY_SCOPES = process.env.EBAY_SCOPES || DEFAULT_EBAY_SCOPES;
+
+// Without a RuName the authorize params carry redirect_uri: undefined, which
+// openid-client strips — producing the same opaque eBay 400 as sending a URL.
+// Say so in the logs rather than leaving it to be rediscovered.
+if (!process.env.EBAY_RUNAME) {
+  console.error(
+    "[auth] EBAY_RUNAME is not set. eBay OAuth requires the RuName from your " +
+      "developer portal as redirect_uri in BOTH the authorize and token steps; " +
+      "sign-in will fail with a 400 until it is configured."
+  );
+}
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -60,12 +53,20 @@ export const authOptions: NextAuthOptions = {
       name: "eBay",
       type: "oauth",
       authorization: {
-  url: EBAY_AUTH_URL,
-  params: {
-    scope: EBAY_SCOPES,
-    response_type: "code",
-  },
-},
+        url: EBAY_AUTH_URL,
+        params: {
+          scope: EBAY_SCOPES,
+          response_type: "code",
+          // eBay wants the RuName here, not a URL — the same rule the token
+          // exchange below already follows. Without this, NextAuth fills in
+          // `${NEXTAUTH_URL}/api/auth/callback/ebay` and eBay rejects the
+          // authorize request outright with
+          // {"error_id":"invalid_request","http_status_code":400}.
+          // openid-client spreads these params over its own defaults, so
+          // this value wins.
+          redirect_uri: process.env.EBAY_RUNAME,
+        },
+      },
       token: {
         url: EBAY_TOKEN_URL,
         async request({ params }) {
