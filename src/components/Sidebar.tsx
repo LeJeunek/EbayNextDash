@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { ThemeToggle } from "./ThemeToggle";
 import styles from "./Sidebar.module.css";
 
 const NAV = [
@@ -65,9 +66,12 @@ export function Sidebar({ user }: { user: User }) {
             <span className={styles.userEmail}>{user.email}</span>
           </div>
         </div>
-        <button className={styles.signOut} onClick={() => signOut({ callbackUrl: "/login" })}>
-          Sign Out
-        </button>
+        <div className={styles.bottomRow}>
+          <button className={styles.signOut} onClick={() => signOut({ callbackUrl: "/login" })}>
+            Sign Out
+          </button>
+          <ThemeToggle />
+        </div>
       </div>
     </nav>
   );

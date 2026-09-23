@@ -8,7 +8,8 @@
    neutral. No gradients, no glows; shadows only on overlays.
    Theme: Paper Mono (light). The accent is ink black; color is reserved for
    money and status. <html data-theme="dark"> switches to its dark
-   counterpart, Mono Signal. */
+   counterpart, Mono Signal. ThemeToggle sets it and saves the choice;
+   the inline script in layout.tsx applies it before first paint. */
 :root {
   color-scheme: light;
   --bg: #fafafa;
@@ -37,8 +38,11 @@
   --ebay-red: #e53238;
   --ebay-yellow: #f5af02;
   --ebay-green: #86b817;
-  --font-display: "Syne", sans-serif;
-  --font-mono: "DM Mono", monospace;
+  /* One typeface. Numbers use Geist's tabular figures (set on body), not a
+     monospace font, so prices line up in columns without looking like code.
+     --font-mono is kept as an alias so existing number styles still resolve. */
+  --font-display: "Geist", system-ui, sans-serif;
+  --font-mono: var(--font-display);
   --radius: 6px;
   --radius-lg: 8px;
   --shadow: 0 8px 24px rgba(0,0,0,0.12); /* overlays only (drawers, menus) */
@@ -75,11 +79,13 @@
 }
 
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-display); }
+body { font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
 
 a { color: inherit; text-decoration: none; }
 
 input, textarea, select {
   font-family: var(--font-display);
+  font-variant-numeric: inherit;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
