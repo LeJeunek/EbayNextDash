@@ -103,9 +103,26 @@ EBAY_API_BASE="https://api.sandbox.ebay.com"
 >
 > ```bash
 > echo 'DATABASE_URL="<same value as in .env.local>"' > .env
+> echo 'DIRECT_URL="<the non-pooled value>"' >> .env
 > ```
 >
 > Both files are gitignored.
+
+**Two connection strings.** `DATABASE_URL` is the pooled connection the app
+uses at runtime; `DIRECT_URL` is the same database without the pooler, which
+Prisma uses for `db push` and migrations. A transaction-mode pooler
+(PgBouncer) cannot run DDL reliably, which shows up as a hang or a baffling
+error rather than a clean failure.
+
+| Provider | Pooled (`DATABASE_URL`) | Direct (`DIRECT_URL`) |
+|----------|-------------------------|------------------------|
+| Neon     | host contains `-pooler` | drop `-pooler`         |
+| Supabase | port `6543`             | port `5432`            |
+
+Not behind a pooler? Set both to the same value. `prisma generate` does not
+read `DIRECT_URL`, so a build with only `DATABASE_URL` still succeeds — but
+`npm run db:push` will fail with
+`P1012: Environment variable not found: DIRECT_URL`.
 
 ```bash
 npm run db:generate   # Generate Prisma client
