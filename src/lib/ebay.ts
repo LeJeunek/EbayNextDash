@@ -16,6 +16,12 @@ export class EbayApiClient {
         Authorization: `Bearer ${this.accessToken}`,
         "Content-Type": "application/json",
         "X-EBAY-C-MARKETPLACE-ID": "EBAY_US",
+        // Node's fetch sends "Accept-Language: *" when none is set, and the
+        // Inventory API rejects the wildcard (errorId 25709, "Invalid value
+        // for header Accept-Language"). eBay also requires Content-Language
+        // when creating or replacing inventory items. Both match EBAY_US.
+        "Accept-Language": "en-US",
+        "Content-Language": "en-US",
         ...(options?.headers || {}),
       },
     });
