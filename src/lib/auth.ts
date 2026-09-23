@@ -165,10 +165,18 @@ export const authOptions: NextAuthOptions = {
       return session;
     },
     async signIn({ user, account, profile }) {
-      // Update eBay-specific fields on sign in
+      // NextAuth runs this callback BEFORE the adapter creates the user on a
+      // first sign-in: `getUserByAccount` finds nothing, so `user` is still
+      // the OAuth profile and `user.id` is eBay's user ID, not a row in our
+      // table. `update` would throw P2025, which NextAuth turns into a
+      // redirect back to /login — sign-in could never succeed for a new user.
+      //
+      // New users get these fields from profile() below, which the adapter
+      // passes straight to createUser. So this only has to refresh rows that
+      // already exist, and updateMany is a no-op (count 0) when none does.
       if (account?.provider === "ebay" && profile) {
         const p = profile as any;
-        await prisma.user.update({
+        await prisma.user.updateMany({
           where: { id: user.id },
           data: {
             ebayUserId: p.userId || null,
