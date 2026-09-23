@@ -3,6 +3,7 @@
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ResoldMark } from "@/components/ResoldMark";
 import styles from "./login.module.css";
 
 export default function LoginPage() {
@@ -31,12 +32,8 @@ export default function LoginPage() {
     <div className={styles.page}>
       <main className={styles.card}>
         <div className={styles.logo}>
-          <svg width="40" height="40" viewBox="0 0 40 40" fill="none">
-            <rect width="40" height="40" rx="8" fill="var(--surface-2)" />
-            <path d="M8 20L14 14L20 20L26 14L32 20" stroke="var(--accent)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            <path d="M8 26L14 20L20 26L26 20L32 26" stroke="var(--text-2)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span className={styles.logoText}>SellerHub</span>
+          <ResoldMark size={40} />
+          <span className={styles.logoText}>Resold</span>
         </div>
 
         <h1 className={styles.headline}>

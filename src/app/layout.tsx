@@ -4,8 +4,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "eBay Dashboard",
-  description: "Manage your eBay listings, orders, and sales analytics",
+  title: "Resold",
+  description: "Track eBay listings, orders, inventory and profit after fees",
 };
 
 const THEME_SCRIPT = `try{if(localStorage.getItem("theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}`;
