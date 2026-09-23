@@ -33,6 +33,8 @@ export default function OrdersPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [selected, setSelected] = useState<Order | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
+  const [syncInfo, setSyncInfo] = useState<string | null>(null);
 
   const load = async (sync = false) => {
     if (sync) setSyncing(true);
@@ -40,6 +42,14 @@ export default function OrdersPage() {
     const res = await fetch(`/api/orders${sync ? "?sync=true" : ""}`);
     const data = await res.json();
     setOrders(data.orders || []);
+    if (sync) {
+      setSyncError(data.syncError || null);
+      setSyncInfo(
+        data.synced
+          ? `eBay returned ${data.synced.found} order${data.synced.found === 1 ? "" : "s"} changed in the last 30 days.`
+          : null
+      );
+    }
     setLoading(false);
     setSyncing(false);
   };
@@ -66,6 +76,20 @@ export default function OrdersPage() {
           {syncing ? "Syncing…" : "↻ Sync from eBay"}
         </button>
       </header>
+
+      {syncError && (
+        <div className={styles.syncError}>
+          <span>⚠ {syncError}</span>
+          <button onClick={() => setSyncError(null)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
+
+      {syncInfo && (
+        <div className={styles.syncInfo}>
+          <span>{syncInfo}</span>
+          <button onClick={() => setSyncInfo(null)} aria-label="Dismiss">✕</button>
+        </div>
+      )}
 
       <div className={styles.controls}>
         <input

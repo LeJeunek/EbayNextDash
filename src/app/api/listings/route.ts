@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient, CreateListingPayload } from "@/lib/ebay";
 import { getEbayAccessToken } from "@/lib/ebay-token";
+import { saveActiveListings, type ListingsSyncResult } from "@/lib/listings-sync";
 
 // GET /api/listings - fetch all listings for the authenticated user
 export async function GET(req: NextRequest) {
@@ -17,37 +18,14 @@ export async function GET(req: NextRequest) {
   const status = searchParams.get("status");
   const sync = searchParams.get("sync") === "true";
 
-  // Optionally sync from eBay API first
+  // Optionally sync from eBay first. Uses the Trading API: the Inventory API
+  // never returns listings created on eBay.com, so it silently found nothing.
   let syncError: string | null = null;
+  let synced: ListingsSyncResult | null = null;
   if (sync) {
     try {
       const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
-      const ebayListings = await client.getListings(200);
-      // Upsert each listing into DB
-      if (ebayListings.inventoryItems) {
-        await Promise.all(
-          ebayListings.inventoryItems.map((item: any) =>
-            prisma.listing.upsert({
-              where: { ebayListingId: item.sku },
-              create: {
-                ebayListingId: item.sku,
-                userId: session.user.id,
-                title: item.product?.title || item.sku,
-                description: item.product?.description || null,
-                price: parseFloat(item.offers?.[0]?.pricingSummary?.price?.value) || 0,
-                quantity: item.availability?.shipToLocationAvailability?.quantity || 0,
-                status: "ACTIVE",
-                imageUrl: item.product?.imageUrls?.[0] || null,
-              },
-              update: {
-                title: item.product?.title || item.sku,
-                description: item.product?.description || null,
-                quantity: item.availability?.shipToLocationAvailability?.quantity || 0,
-              },
-            })
-          )
-        );
-      }
+      synced = await saveActiveListings(session.user.id, await client.getActiveListings());
     } catch (err) {
       console.error("eBay sync error:", err);
       syncError = err instanceof Error ? err.message : "eBay sync failed";
@@ -65,7 +43,11 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ listings, ...(syncError ? { syncError } : {}) });
+  return NextResponse.json({
+    listings,
+    ...(syncError ? { syncError } : {}),
+    ...(synced ? { synced } : {}),
+  });
 }
 
 // POST /api/listings - create a new listing
