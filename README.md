@@ -49,7 +49,10 @@ cp .env.local.example .env.local
    ```
    https://yourdomain.com/api/auth/callback/ebay
    ```
-5. Under **Auth Accepted Scopes**, enable:
+5. Copy your **RuName** (same page, under **User Tokens**) into `EBAY_RUNAME`.
+   eBay uses the RuName as the `redirect_uri` value in both OAuth steps — the
+   callback URL above is what the RuName *maps to*, not what you send.
+6. Under **Auth Accepted Scopes**, enable:
    - `https://api.ebay.com/oauth/api_scope`
    - `https://api.ebay.com/oauth/api_scope/sell.inventory`
    - `https://api.ebay.com/oauth/api_scope/sell.fulfillment`
@@ -68,10 +71,15 @@ NEXTAUTH_SECRET="run: openssl rand -base64 32"
 EBAY_CLIENT_ID="your-app-id-from-developer-portal"
 EBAY_CLIENT_SECRET="your-cert-id-from-developer-portal"
 
-# The RuName from your app's "User Tokens" section. eBay's token exchange
-# expects this as redirect_uri, NOT the callback URL — a mismatch here is the
-# usual cause of invalid_grant on sign-in.
+# The RuName from your app's "User Tokens" section — NOT a URL. eBay expects
+# this as redirect_uri in both the authorize and token steps; a missing or
+# wrong value fails sign-in with an opaque 400.
 EBAY_RUNAME="your-runame"
+
+# Optional. Defaults to the scopes this app actually calls. eBay rejects the
+# whole authorize request if any requested scope is not enabled for your app,
+# so only widen this to scopes you have approved in the portal.
+# EBAY_SCOPES="space separated scopes"
 
 # Use sandbox for testing:
 EBAY_ENVIRONMENT="sandbox"
