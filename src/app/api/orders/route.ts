@@ -18,11 +18,15 @@ export async function GET(req: NextRequest) {
   const parsedDays = parseInt(searchParams.get("days") || "30", 10);
   const days = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 30;
 
-  // Sync from eBay if requested
+  // Sync from eBay if requested. Failures used to go only to the server log,
+  // so a broken sync looked identical to one that found nothing.
+  let syncError: string | null = null;
+  let synced: { found: number } | null = null;
   if (sync) {
     try {
       const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
       const ebayOrders = await client.getRecentOrders(days);
+      synced = { found: ebayOrders.orders?.length ?? 0 };
 
       if (ebayOrders.orders?.length) {
         await Promise.all(
@@ -43,6 +47,7 @@ export async function GET(req: NextRequest) {
       }
     } catch (err) {
       console.error("eBay orders sync error:", err);
+      syncError = err instanceof Error ? err.message : "eBay orders sync failed";
     }
   }
 
@@ -59,5 +64,9 @@ export async function GET(req: NextRequest) {
     include: { listing: { select: { title: true, imageUrl: true } } },
   });
 
-  return NextResponse.json({ orders });
+  return NextResponse.json({
+    orders,
+    ...(syncError ? { syncError } : {}),
+    ...(synced ? { synced } : {}),
+  });
 }

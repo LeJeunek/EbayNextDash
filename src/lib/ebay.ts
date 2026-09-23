@@ -1,6 +1,77 @@
 // src/lib/ebay.ts
+import { XMLParser } from "fast-xml-parser";
+
 const EBAY_API_BASE =
   process.env.EBAY_API_BASE || "https://api.sandbox.ebay.com";
+
+// ─── Trading API ─────────────────────────────────────────────────────────────
+// The Inventory API only returns listings created through the Inventory API.
+// Listings made on eBay.com or in Seller Hub never appear there, so syncing
+// through it silently found nothing. The Trading API's GetMyeBaySelling
+// returns every active listing however it was created. It accepts the same
+// OAuth user token, sent as X-EBAY-API-IAF-TOKEN.
+const TRADING_API_URL = `${EBAY_API_BASE}/ws/api.dll`;
+const TRADING_COMPATIBILITY_LEVEL = "1349";
+const TRADING_PAGE_SIZE = 200; // GetMyeBaySelling maximum
+const TRADING_MAX_PAGES = 50;
+
+const tradingXml = new XMLParser({
+  ignoreAttributes: false,
+  attributeNamePrefix: "@_",
+  parseTagValue: false,
+  // Repeated elements parse as an array only when there are two or more;
+  // force the ones we iterate so a single listing or error still loops.
+  isArray: (name) => name === "Item" || name === "Errors",
+});
+
+/** An active eBay listing, normalised from the Trading API. */
+export type ActiveListing = {
+  itemId: string;
+  title: string;
+  price: number;
+  currency: string;
+  quantity: number;
+  quantitySold: number;
+  imageUrl: string | null;
+  listingUrl: string | null;
+  startTime: Date | null;
+  endTime: Date | null;
+};
+
+function tradingAmount(value: any): { amount: number; currency: string | null } {
+  if (value === undefined || value === null) return { amount: 0, currency: null };
+  if (typeof value === "object") {
+    return {
+      amount: parseFloat(value["#text"]) || 0,
+      currency: value["@_currencyID"] ?? null,
+    };
+  }
+  return { amount: parseFloat(value) || 0, currency: null };
+}
+
+function tradingDate(value: any): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+export function mapTradingItem(item: any): ActiveListing {
+  const price = tradingAmount(
+    item.SellingStatus?.CurrentPrice ?? item.BuyItNowPrice ?? item.StartPrice
+  );
+  return {
+    itemId: String(item.ItemID),
+    title: String(item.Title ?? item.ItemID),
+    price: price.amount,
+    currency: price.currency || "USD",
+    quantity: Number(item.QuantityAvailable ?? item.Quantity ?? 0) || 0,
+    quantitySold: Number(item.SellingStatus?.QuantitySold ?? 0) || 0,
+    imageUrl: item.PictureDetails?.GalleryURL ?? null,
+    listingUrl: item.ListingDetails?.ViewItemURL ?? null,
+    startTime: tradingDate(item.ListingDetails?.StartTime),
+    endTime: tradingDate(item.ListingDetails?.EndTime),
+  };
+}
 
 export class EbayApiClient {
   private accessToken: string;
@@ -34,6 +105,70 @@ export class EbayApiClient {
     }
 
     return res.json();
+  }
+
+  // ─── Trading API ─────────────────────────────────────────────────────────
+
+  private async trading(callName: string, innerXml: string): Promise<any> {
+    const res = await fetch(TRADING_API_URL, {
+      method: "POST",
+      headers: {
+        "X-EBAY-API-CALL-NAME": callName,
+        "X-EBAY-API-SITEID": "0", // eBay US
+        "X-EBAY-API-COMPATIBILITY-LEVEL": TRADING_COMPATIBILITY_LEVEL,
+        "X-EBAY-API-IAF-TOKEN": this.accessToken,
+        "Content-Type": "text/xml",
+        "Accept-Language": "en-US",
+      },
+      body:
+        `<?xml version="1.0" encoding="utf-8"?>` +
+        `<${callName}Request xmlns="urn:ebay:apis:eBLBaseComponents">${innerXml}</${callName}Request>`,
+    });
+
+    const text = await res.text();
+    let doc: any;
+    try {
+      doc = text ? tradingXml.parse(text)?.[`${callName}Response`] : undefined;
+    } catch {
+      doc = undefined;
+    }
+
+    // Ack is Success, Warning, Failure or PartialFailure; the first two are fine.
+    if (!res.ok || !doc || doc.Ack === "Failure" || doc.Ack === "PartialFailure") {
+      const details = (doc?.Errors ?? [])
+        .map((e: any) => `${e.ErrorCode}: ${e.LongMessage || e.ShortMessage}`)
+        .join("; ");
+      throw new Error(
+        `eBay Trading API ${callName} failed (${res.status})` +
+          (details ? `: ${details}` : text ? ": unreadable response" : ": empty response")
+      );
+    }
+    return doc;
+  }
+
+  /** Every active listing on the account, however it was created. */
+  async getActiveListings(): Promise<ActiveListing[]> {
+    const listings: ActiveListing[] = [];
+    for (let page = 1; page <= TRADING_MAX_PAGES; page++) {
+      const doc = await this.trading(
+        "GetMyeBaySelling",
+        `<ActiveList><Include>true</Include>` +
+          `<Pagination><EntriesPerPage>${TRADING_PAGE_SIZE}</EntriesPerPage>` +
+          `<PageNumber>${page}</PageNumber></Pagination></ActiveList>` +
+          `<DetailLevel>ReturnAll</DetailLevel>`
+      );
+      // eBay omits ActiveList entirely when there are no active listings.
+      const active = doc.ActiveList;
+      for (const item of active?.ItemArray?.Item ?? []) {
+        listings.push(mapTradingItem(item));
+      }
+      const totalPages = Number(active?.PaginationResult?.TotalNumberOfPages) || 1;
+      if (page >= totalPages) return listings;
+    }
+    // Returning a partial list would mark the unseen listings as ended.
+    throw new Error(
+      `More than ${TRADING_MAX_PAGES * TRADING_PAGE_SIZE} active listings; sync stopped rather than save a partial result.`
+    );
   }
 
   // ─── Inventory ───────────────────────────────────────────────────────────
