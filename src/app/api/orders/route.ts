@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient, mapEbayOrder } from "@/lib/ebay";
+import { getEbayAccessToken } from "@/lib/ebay-token";
 
 // GET /api/orders - fetch all orders for the user
 export async function GET(req: NextRequest) {
@@ -18,9 +19,9 @@ export async function GET(req: NextRequest) {
   const days = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 30;
 
   // Sync from eBay if requested
-  if (sync && session.accessToken) {
+  if (sync) {
     try {
-      const client = new EbayApiClient(session.accessToken);
+      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
       const ebayOrders = await client.getRecentOrders(days);
 
       if (ebayOrders.orders?.length) {

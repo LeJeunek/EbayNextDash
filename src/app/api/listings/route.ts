@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient, CreateListingPayload } from "@/lib/ebay";
+import { getEbayAccessToken } from "@/lib/ebay-token";
 
 // GET /api/listings - fetch all listings for the authenticated user
 export async function GET(req: NextRequest) {
@@ -18,9 +19,9 @@ export async function GET(req: NextRequest) {
 
   // Optionally sync from eBay API first
   let syncError: string | null = null;
-  if (sync && session.accessToken) {
+  if (sync) {
     try {
-      const client = new EbayApiClient(session.accessToken);
+      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
       const ebayListings = await client.getListings(200);
       // Upsert each listing into DB
       if (ebayListings.inventoryItems) {
@@ -51,8 +52,6 @@ export async function GET(req: NextRequest) {
       console.error("eBay sync error:", err);
       syncError = err instanceof Error ? err.message : "eBay sync failed";
     }
-  } else if (sync) {
-    syncError = "No eBay access token on this session — sign in again.";
   }
 
   const listings = await prisma.listing.findMany({
@@ -92,9 +91,9 @@ export async function POST(req: NextRequest) {
   // Push to eBay API if token available
   let ebayListingId = sku;
   let ebayError: string | null = null;
-  if (session.accessToken) {
+  {
     try {
-      const client = new EbayApiClient(session.accessToken);
+      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
       const payload: CreateListingPayload = {
         availability: {
           shipToLocationAvailability: { quantity: quantity || 1 },
