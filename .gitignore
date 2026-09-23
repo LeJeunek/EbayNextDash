@@ -7,4 +7,3 @@ out/
 dist/
 *.tsbuildinfo
 .DS_Store
-.env.local.example

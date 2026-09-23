@@ -15,7 +15,7 @@
   --danger: #f87171;
   --text: #e8e8f0;
   --text-2: #9090b0;
-  --text-3: #6060808;
+  --text-3: #606080;
   --ebay-blue: #3665f3;
   --ebay-red: #e53238;
   --ebay-yellow: #f5af02;
@@ -55,3 +55,40 @@ button { font-family: var(--font-display); cursor: pointer; }
 ::-webkit-scrollbar-thumb { background: var(--border-light); border-radius: 3px; }
 
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* ── Print views ──────────────────────────────────────────────────────────
+   The print sheet renders its own light theme, so the dark app chrome and the
+   on-screen toolbar both have to get out of the way on paper. */
+.print-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  max-width: 8.5in;
+  margin: 28px auto 0;
+  padding: 0 4px;
+  font-size: 12px;
+  color: var(--text-2);
+}
+.print-controls button {
+  background: var(--accent);
+  color: #fff;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 9px 16px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.print-controls button:hover { filter: brightness(1.1); }
+.print-controls button.secondary {
+  background: var(--surface-2);
+  color: var(--text-2);
+  border-color: var(--border);
+}
+
+@media print {
+  html, body { background: #fff; }
+  .print-controls { display: none; }
+  /* The sheet supplies the margins itself; see print.module.css. */
+  @page { margin: 0; size: letter portrait; }
+}

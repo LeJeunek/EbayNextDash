@@ -14,7 +14,8 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const sync = searchParams.get("sync") === "true";
   const status = searchParams.get("status");
-  const days = parseInt(searchParams.get("days") || "30");
+  const parsedDays = parseInt(searchParams.get("days") || "30", 10);
+  const days = Number.isFinite(parsedDays) && parsedDays > 0 ? parsedDays : 30;
 
   // Sync from eBay if requested
   if (sync && session.accessToken) {
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
   const orders = await prisma.order.findMany({
     where: {
       userId: session.user.id,
+      saleDate: { gte: sinceDate },
       ...(status ? { status: status as any } : {}),
     },
     orderBy: { saleDate: "desc" },

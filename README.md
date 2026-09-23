@@ -95,12 +95,46 @@ EBAY_API_BASE="https://api.sandbox.ebay.com"
 
 ### 5. Run Database Migrations
 
+> **The Prisma CLI reads `.env`, not `.env.local`.** Next.js reads
+> `.env.local`, so the two need the connection string in different places.
+> Without a `.env`, `db:push` fails with
+> `P1012: Environment variable not found: DATABASE_URL` even though the app
+> itself runs fine. Simplest fix — give the CLI its own file:
+>
+> ```bash
+> echo 'DATABASE_URL="<same value as in .env.local>"' > .env
+> echo 'DIRECT_URL="<the non-pooled value>"' >> .env
+> ```
+>
+> Both files are gitignored.
+
+**Two connection strings.** `DATABASE_URL` is the pooled connection the app
+uses at runtime; `DIRECT_URL` is the same database without the pooler, which
+Prisma uses for `db push` and migrations. A transaction-mode pooler
+(PgBouncer) cannot run DDL reliably, which shows up as a hang or a baffling
+error rather than a clean failure.
+
+| Provider | Pooled (`DATABASE_URL`) | Direct (`DIRECT_URL`) |
+|----------|-------------------------|------------------------|
+| Neon     | host contains `-pooler` | drop `-pooler`         |
+| Supabase | port `6543`             | port `5432`            |
+
+Not behind a pooler? Set both to the same value. `prisma generate` does not
+read `DIRECT_URL`, so a build with only `DATABASE_URL` still succeeds — but
+`npm run db:push` will fail with
+`P1012: Environment variable not found: DIRECT_URL`.
+
 ```bash
 npm run db:generate   # Generate Prisma client
 npm run db:push       # Push schema to database
 # Optional: seed/view data
 npm run db:studio
 ```
+
+> Already deployed? The inventory ledger adds one table (`InventoryItem`) and
+> one enum (`InventoryStatus`). Re-run `npm run db:push` (or
+> `npm run db:migrate`) against your database before deploying — nothing
+> existing is altered, so no data migration is needed.
 
 ### 6. Run the App
 
@@ -133,6 +167,40 @@ Visit [http://localhost:3000](http://localhost:3000)
 - Filter by status
 - Sync orders from the last 30 days from eBay
 
+### 🧮 Inventory & Profit  — `/dashboard/inventory`
+The hand-kept ledger of what you bought to resell. One row per item, with
+**original cost**, **sell price**, **packing cost**, shipping, eBay fees and
+other costs — and a **profit** column computed from all of them.
+
+- **Edit in place.** Click any cell and type; it saves on blur or Enter,
+  Escape reverts. Nothing is a modal.
+- **Add by hand** with the "+ Add Item" form, or bulk-load:
+  - **↓ From eBay orders** — turns orders you have already synced into
+    inventory rows (sale price, shipping and fees come across; original cost
+    and packing are left at 0 for you to fill in, since eBay never knew them).
+    Re-running it will not duplicate rows.
+  - **⇪ Import CSV** — paste a spreadsheet export. Only `Title` is required;
+    common header spellings (`Item`, `Cost`, `Sold For`, `Packaging`,
+    `Date Sold`, …) are recognised, and `$1,234.56` parses fine.
+- **Filter** by tax year (the year the item *sold*), status, or a search over
+  title / SKU / category / source / notes. Every total and both exports follow
+  the filter you are looking at.
+- **⇩ Export CSV** for your own spreadsheet or your accountant.
+
+### 🖨 Printable summary — `/print/inventory`
+A compact one-page **Sales & Cost Summary** for tax paperwork: gross sales,
+cost of goods, packing, shipping, fees, total expenses and net profit, above a
+numbered line-item table. Hit **Print / Save as PDF** and pick "Save as PDF" as
+the destination to get a file.
+
+The page respects the same `?year=` / `?status=` / `?q=` filters as the
+inventory table, so `/print/inventory?year=2026` prints just that tax year.
+
+> A W-9 itself only collects your name and TIN — it has no income or expense
+> lines. This summary is the supporting arithmetic you actually need when
+> filling in a Schedule C or reconciling a 1099-K. It is a working record, not
+> a filed tax document.
+
 ### 📈 Sales Analytics
 - Area or bar chart: Revenue & Profit over last 7 / 14 / 30 / 90 days
 - Summary cards: Total Revenue, Profit, Margin %, eBay Fees, Orders, Avg Order Value
@@ -147,15 +215,18 @@ src/
 ├── app/
 │   ├── api/
 │   │   ├── auth/[...nextauth]/   # NextAuth route
+│   │   ├── inventory/            # GET/POST + [id], /import, /export
 │   │   ├── listings/             # GET, POST + [id] PATCH/DELETE
 │   │   ├── orders/               # GET with optional eBay sync
 │   │   └── sales/                # Analytics aggregation
 │   ├── dashboard/
 │   │   ├── layout.tsx            # Auth guard + sidebar
 │   │   ├── page.tsx              # Overview
+│   │   ├── inventory/page.tsx    # Editable cost/profit ledger
 │   │   ├── listings/page.tsx
 │   │   ├── orders/page.tsx
 │   │   └── sales/page.tsx
+│   ├── print/inventory/page.tsx  # Print/PDF summary (no sidebar)
 │   ├── login/page.tsx            # eBay OAuth landing
 │   └── globals.css               # Design tokens
 ├── components/
@@ -164,11 +235,12 @@ src/
 ├── lib/
 │   ├── auth.ts                   # NextAuth config with eBay provider
 │   ├── prisma.ts                 # Prisma singleton
+│   ├── inventory.ts              # Profit maths, CSV, shared query filter
 │   └── ebay.ts                   # eBay API client + helpers
 └── types/next-auth.d.ts          # Session type augmentation
 
 prisma/
-└── schema.prisma                 # User, Account, Listing, Order models
+└── schema.prisma                 # User, Account, Listing, Order, InventoryItem
 ```
 
 ---
@@ -188,4 +260,17 @@ prisma/
 
 - **Multi-user**: All data is scoped to `userId` — any eBay seller who logs in sees only their own listings, orders, and sales.
 - **Sync vs. Local**: The dashboard stores a local copy in Postgres for fast queries. Use the "Sync from eBay" button to pull the latest data.
-- **Profit calculation**: `profit = salePrice - shippingCost - ebayFee`. You can add item cost tracking to `Order` for a more accurate net margin.
+- **Two profit numbers, on purpose**:
+  - `Order.profit` (Orders, Sales) is `salePrice - shippingCost - ebayFee`.
+    It comes from eBay, which never knows what you paid for the item.
+  - `InventoryItem` profit (Inventory, printable summary) is
+    `sellPrice - (originalCost + packingCost + shippingCost + ebayFee + otherCost)`.
+    This is the real number, because you supply the cost side.
+
+  The inventory figure is **derived on read, never stored**, so it cannot drift
+  out of sync with the fields it is computed from.
+- **Unsold rows**: an item with no sell price has a profit of `null` and prints
+  as `—` rather than a misleading negative. Its invested cost is still tracked
+  and shown as "tied up in N unsold".
+- **Tax year** means the year the item *sold*, so unsold rows only appear under
+  "All years".
