@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient } from "@/lib/ebay";
+import { getEbayAccessToken } from "@/lib/ebay-token";
 
 export async function GET(
   req: NextRequest,
@@ -72,9 +73,9 @@ export async function DELETE(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   // Try to delete from eBay too
-  if (session.accessToken && existing.ebayListingId) {
+  if (existing.ebayListingId) {
     try {
-      const client = new EbayApiClient(session.accessToken);
+      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
       await client.deleteListing(existing.ebayListingId);
     } catch (err) {
       console.error("eBay delete error:", err);
