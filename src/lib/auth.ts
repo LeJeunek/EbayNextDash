@@ -34,16 +34,59 @@ const DEFAULT_EBAY_SCOPES = [
 
 const EBAY_SCOPES = process.env.EBAY_SCOPES || DEFAULT_EBAY_SCOPES;
 
+/**
+ * Read a credential from the environment, trimming surrounding whitespace.
+ *
+ * A trailing newline is easy to pick up when pasting into a hosting
+ * dashboard and impossible to see afterwards. It matters here because the
+ * value goes into an HTTP Basic header and into form bodies, where eBay
+ * rejects it as "client authentication failed" — an error that points at the
+ * credential being wrong rather than merely padded.
+ */
+function credential(name: string): string | undefined {
+  const raw = process.env[name];
+  if (raw === undefined) return undefined;
+  const trimmed = raw.trim();
+  if (trimmed !== raw) {
+    console.warn(
+      `[auth] ${name} had surrounding whitespace; trimmed. ` +
+        `Re-enter it without a trailing newline to silence this.`
+    );
+  }
+  return trimmed || undefined;
+}
+
+const EBAY_CLIENT_ID = credential("EBAY_CLIENT_ID");
+const EBAY_CLIENT_SECRET = credential("EBAY_CLIENT_SECRET");
+const EBAY_RUNAME = credential("EBAY_RUNAME");
+
 // Without a RuName the authorize params carry redirect_uri: undefined, which
 // openid-client strips — producing the same opaque eBay 400 as sending a URL.
 // Say so in the logs rather than leaving it to be rediscovered.
-if (!process.env.EBAY_RUNAME) {
+if (!EBAY_RUNAME) {
   console.error(
     "[auth] EBAY_RUNAME is not set. eBay OAuth requires the RuName from your " +
       "developer portal as redirect_uri in BOTH the authorize and token steps; " +
       "sign-in will fail with a 400 until it is configured."
   );
 }
+
+
+// Presence and length only — never the values. Enough to spot a variable that
+// did not reach the runtime, or one that is obviously the wrong field.
+console.info(
+  "[auth] eBay credentials:",
+  JSON.stringify({
+    EBAY_CLIENT_ID: EBAY_CLIENT_ID
+      ? { set: true, length: EBAY_CLIENT_ID.length, env: EBAY_CLIENT_ID.includes("-SBX-") ? "SBX" : EBAY_CLIENT_ID.includes("-PRD-") ? "PRD" : "unknown" }
+      : { set: false },
+    EBAY_CLIENT_SECRET: EBAY_CLIENT_SECRET
+      ? { set: true, length: EBAY_CLIENT_SECRET.length, env: EBAY_CLIENT_SECRET.startsWith("SBX-") ? "SBX" : EBAY_CLIENT_SECRET.startsWith("PRD-") ? "PRD" : "unknown" }
+      : { set: false },
+    EBAY_RUNAME: EBAY_RUNAME ? { set: true, length: EBAY_RUNAME.length } : { set: false },
+    EBAY_TOKEN_URL,
+  })
+);
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -64,21 +107,21 @@ export const authOptions: NextAuthOptions = {
           // {"error_id":"invalid_request","http_status_code":400}.
           // openid-client spreads these params over its own defaults, so
           // this value wins.
-          redirect_uri: process.env.EBAY_RUNAME,
+          redirect_uri: EBAY_RUNAME,
         },
       },
       token: {
         url: EBAY_TOKEN_URL,
         async request({ params }) {
           const credentials = Buffer.from(
-            `${process.env.EBAY_CLIENT_ID}:${process.env.EBAY_CLIENT_SECRET}`
+            `${EBAY_CLIENT_ID}:${EBAY_CLIENT_SECRET}`
           ).toString("base64");
 
           const body = new URLSearchParams({
             grant_type: "authorization_code",
             code: params.code as string,
             // eBay token exchange requires the RuName as redirect_uri, NOT the actual URL
-            redirect_uri: process.env.EBAY_RUNAME!,
+            redirect_uri: EBAY_RUNAME!,
           });
 
           const response = await fetch(EBAY_TOKEN_URL, {
@@ -114,6 +157,31 @@ export const authOptions: NextAuthOptions = {
             }
           );
           const profile = await response.json();
+
+          if (!response.ok) {
+            console.error(
+              `[auth] eBay identity lookup failed (${response.status}):`,
+              JSON.stringify(profile)
+            );
+            throw new Error(
+              `eBay identity lookup failed (${response.status}). The usual ` +
+                `cause is commerce.identity.readonly not being enabled for ` +
+                `this keyset under Auth Accepted Scopes.`
+            );
+          }
+
+          // A 200 with neither field means the shape changed; failing here
+          // beats handing NextAuth a user with id: undefined.
+          if (!profile?.userId && !profile?.username) {
+            console.error(
+              "[auth] eBay identity returned no userId or username:",
+              JSON.stringify(profile)
+            );
+            throw new Error(
+              "eBay identity response contained no userId or username."
+            );
+          }
+
           return profile;
         },
       },
@@ -133,8 +201,8 @@ export const authOptions: NextAuthOptions = {
           ebayUsername: profile.username,
         };
       },
-      clientId: process.env.EBAY_CLIENT_ID,
-      clientSecret: process.env.EBAY_CLIENT_SECRET,
+      clientId: EBAY_CLIENT_ID,
+      clientSecret: EBAY_CLIENT_SECRET,
     },
   ],
   session: {
