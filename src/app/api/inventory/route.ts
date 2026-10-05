@@ -1,7 +1,7 @@
 // src/app/api/inventory/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { demoInventory, demoReadOnly } from "@/lib/demo/responses";
+import { getViewer } from "@/lib/viewer";
 import { prisma } from "@/lib/prisma";
 import {
   inventoryWhere,
@@ -16,14 +16,15 @@ export const dynamic = "force-dynamic";
 
 // GET /api/inventory — list rows plus a rolled-up summary
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return NextResponse.json(demoInventory(new URL(req.url).searchParams));
+  const userId = viewer.userId;
 
   const { searchParams } = new URL(req.url);
 
   const items = await prisma.inventoryItem.findMany({
-    where: inventoryWhere(session.user.id, searchParams),
+    where: inventoryWhere(userId, searchParams),
     orderBy: [{ soldDate: "desc" }, { createdAt: "desc" }],
   });
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   // Every year that has at least one sale, for the year picker.
   const years = await prisma.inventoryItem.findMany({
-    where: { userId: session.user.id, soldDate: { not: null } },
+    where: { userId: userId, soldDate: { not: null } },
     select: { soldDate: true },
     orderBy: { soldDate: "desc" },
   });
@@ -48,9 +49,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/inventory — add a row by hand
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
   const body = await req.json().catch(() => null);
   if (!body || typeof body.title !== "string" || !body.title.trim()) {
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
 
   const item = await prisma.inventoryItem.create({
     data: {
-      userId: session.user.id,
+      userId: userId,
       title: body.title.trim(),
       sku: body.sku?.trim() || null,
       category: body.category?.trim() || null,

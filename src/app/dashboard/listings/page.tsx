@@ -38,7 +38,8 @@ export default function ListingsPage() {
     setListings(data.listings || []);
     // A failed eBay sync used to be silent: the list just came back unchanged.
     setSyncError(data.syncError || null);
-    if (sync) setSyncInfo(describeListingsSync(data.synced));
+    // Demo mode answers a sync with a notice instead of calling eBay.
+    if (sync) setSyncInfo(data.notice || describeListingsSync(data.synced));
     setLoading(false);
     setSyncing(false);
   };
@@ -53,8 +54,14 @@ export default function ListingsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...form, price: parseFloat(form.price), quantity: parseInt(form.quantity) }),
     });
-    setForm({ title: "", description: "", price: "", quantity: "1", condition: "NEW", imageUrl: "", category: "" });
     const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      // e.g. the demo's read-only 403; keep the form so nothing typed is lost.
+      setSyncError(data.error || "Could not create that listing.");
+      setSaving(false);
+      return;
+    }
+    setForm({ title: "", description: "", price: "", quantity: "1", condition: "NEW", imageUrl: "", category: "" });
     setSyncError(data.ebayError || null);
     setShowForm(false);
     setSaving(false);
@@ -63,7 +70,12 @@ export default function ListingsPage() {
 
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this listing?")) return;
-    await fetch(`/api/listings/${id}`, { method: "DELETE" });
+    const res = await fetch(`/api/listings/${id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setSyncError(data.error || "Could not delete that listing.");
+      return;
+    }
     load();
   };
 

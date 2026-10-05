@@ -102,3 +102,4 @@
   transition: all 0.12s;
 }
 .signOut:hover { border-color: var(--danger); color: var(--danger); background: var(--danger-subtle); }
+a.signOut { display: block; text-align: center; text-decoration: none; }

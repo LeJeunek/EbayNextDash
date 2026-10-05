@@ -1,7 +1,7 @@
 // src/app/api/listings/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { demoListing, demoReadOnly } from "@/lib/demo/responses";
+import { getViewer } from "@/lib/viewer";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient } from "@/lib/ebay";
 import { getEbayAccessToken } from "@/lib/ebay-token";
@@ -10,12 +10,16 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") {
+    const listing = demoListing(params.id);
+    return listing ? NextResponse.json({ listing }) : NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const userId = viewer.userId;
 
   const listing = await prisma.listing.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id: params.id, userId: userId },
     include: { orders: { orderBy: { saleDate: "desc" } } },
   });
 
@@ -29,12 +33,13 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
   const existing = await prisma.listing.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id: params.id, userId: userId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -62,12 +67,13 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
   const existing = await prisma.listing.findFirst({
-    where: { id: params.id, userId: session.user.id },
+    where: { id: params.id, userId: userId },
   });
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
@@ -75,7 +81,7 @@ export async function DELETE(
   // Try to delete from eBay too
   if (existing.ebayListingId) {
     try {
-      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
+      const client = new EbayApiClient(await getEbayAccessToken(userId));
       await client.deleteListing(existing.ebayListingId);
     } catch (err) {
       console.error("eBay delete error:", err);

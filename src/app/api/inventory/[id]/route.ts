@@ -1,8 +1,8 @@
 // src/app/api/inventory/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
+import { demoInventoryItem, demoReadOnly } from "@/lib/demo/responses";
 import { Prisma } from "@prisma/client";
-import { authOptions } from "@/lib/auth";
+import { getViewer } from "@/lib/viewer";
 import { prisma } from "@/lib/prisma";
 import { parseDate, parseMoney, parseStatus, withProfit } from "@/lib/inventory";
 
@@ -16,11 +16,15 @@ export async function GET(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") {
+    const item = demoInventoryItem(params.id);
+    return item ? NextResponse.json({ item }) : NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  const userId = viewer.userId;
 
-  const item = await ownedItem(params.id, session.user.id);
+  const item = await ownedItem(params.id, userId);
   if (!item) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({ item: withProfit(item) });
@@ -31,11 +35,12 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
-  const existing = await ownedItem(params.id, session.user.id);
+  const existing = await ownedItem(params.id, userId);
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -97,11 +102,12 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
-  const existing = await ownedItem(params.id, session.user.id);
+  const existing = await ownedItem(params.id, userId);
   if (!existing)
     return NextResponse.json({ error: "Not found" }, { status: 404 });
 

@@ -156,7 +156,12 @@ export default function InventoryPage() {
 
   const handleDelete = async (item: Item) => {
     if (!confirm(`Delete "${item.title}"? This cannot be undone.`)) return;
-    await fetch(`/api/inventory/${item.id}`, { method: "DELETE" });
+    const res = await fetch(`/api/inventory/${item.id}`, { method: "DELETE" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      setMessage(err.error || "Could not delete that item.");
+      return;
+    }
     load();
   };
 

@@ -1,7 +1,7 @@
 // src/app/api/listings/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { demoListings, demoReadOnly } from "@/lib/demo/responses";
+import { getViewer } from "@/lib/viewer";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient, CreateListingPayload } from "@/lib/ebay";
 import { getEbayAccessToken } from "@/lib/ebay-token";
@@ -9,10 +9,10 @@ import { saveActiveListings, type ListingsSyncResult } from "@/lib/listings-sync
 
 // GET /api/listings - fetch all listings for the authenticated user
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return NextResponse.json(demoListings(new URL(req.url).searchParams));
+  const userId = viewer.userId;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
@@ -24,8 +24,8 @@ export async function GET(req: NextRequest) {
   let synced: ListingsSyncResult | null = null;
   if (sync) {
     try {
-      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
-      synced = await saveActiveListings(session.user.id, await client.getActiveListings());
+      const client = new EbayApiClient(await getEbayAccessToken(userId));
+      synced = await saveActiveListings(userId, await client.getActiveListings());
     } catch (err) {
       console.error("eBay sync error:", err);
       syncError = err instanceof Error ? err.message : "eBay sync failed";
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
 
   const listings = await prisma.listing.findMany({
     where: {
-      userId: session.user.id,
+      userId: userId,
       ...(status ? { status: status as any } : {}),
     },
     orderBy: { createdAt: "desc" },
@@ -52,10 +52,10 @@ export async function GET(req: NextRequest) {
 
 // POST /api/listings - create a new listing
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
   const body = await req.json();
   const { title, description, price, quantity, condition, imageUrl, category } = body;
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
   let ebayError: string | null = null;
   {
     try {
-      const client = new EbayApiClient(await getEbayAccessToken(session.user.id));
+      const client = new EbayApiClient(await getEbayAccessToken(userId));
       const payload: CreateListingPayload = {
         availability: {
           shipToLocationAvailability: { quantity: quantity || 1 },
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
   const listing = await prisma.listing.create({
     data: {
       ebayListingId,
-      userId: session.user.id,
+      userId: userId,
       title,
       description: description || null,
       price: parseFloat(price),

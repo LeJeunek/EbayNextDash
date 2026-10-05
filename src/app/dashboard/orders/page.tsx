@@ -45,9 +45,10 @@ export default function OrdersPage() {
     if (sync) {
       setSyncError(data.syncError || null);
       setSyncInfo(
-        data.synced
+        data.notice ||
+        (data.synced
           ? `eBay returned ${data.synced.found} order${data.synced.found === 1 ? "" : "s"} changed in the last 30 days.`
-          : null
+          : null)
       );
     }
     setLoading(false);

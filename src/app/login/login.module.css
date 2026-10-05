@@ -104,6 +104,23 @@
 }
 .loginBtn:disabled { opacity: 0.6; cursor: not-allowed; }
 
+.demoBtn {
+  display: block;
+  width: 100%;
+  margin-bottom: 16px;
+  padding: 12px 24px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  font-family: var(--font-display);
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.12s;
+}
+.demoBtn:hover { background: var(--surface-2); }
+
 .btnSpinner {
   width: 18px;
   height: 18px;
