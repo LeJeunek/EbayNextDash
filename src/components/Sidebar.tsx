@@ -19,10 +19,10 @@ type User = {
   name?: string | null;
   email?: string | null;
   image?: string | null;
-  ebayUsername?: string;
+  ebayUsername?: string | null;
 };
 
-export function Sidebar({ user }: { user: User }) {
+export function Sidebar({ user, demo = false }: { user: User; demo?: boolean }) {
   const pathname = usePathname();
 
   return (
@@ -64,9 +64,16 @@ export function Sidebar({ user }: { user: User }) {
           </div>
         </div>
         <div className={styles.bottomRow}>
-          <button className={styles.signOut} onClick={() => signOut({ callbackUrl: "/login" })}>
-            Sign Out
-          </button>
+          {demo ? (
+            // Demo visitors have no session to end; this clears the demo cookie.
+            <a href="/demo/exit" className={styles.signOut}>
+              Exit Demo
+            </a>
+          ) : (
+            <button className={styles.signOut} onClick={() => signOut({ callbackUrl: "/login" })}>
+              Sign Out
+            </button>
+          )}
           <ThemeToggle />
         </div>
       </div>

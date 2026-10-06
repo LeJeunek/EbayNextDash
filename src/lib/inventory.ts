@@ -274,3 +274,31 @@ export function inventoryWhere(
 
   return where;
 }
+
+/**
+ * In-memory twin of inventoryWhere(), for the demo. Same rules: status must
+ * parse, the tax year is the UTC year an item sold (so unsold items drop out
+ * once a year is chosen), and search is a case-insensitive "contains" over
+ * title, SKU, category, source and notes — what Postgres ILIKE does.
+ */
+export function filterInventory<
+  T extends Pick<InventoryItem, "status" | "soldDate" | "title" | "sku" | "category" | "source" | "notes">
+>(items: T[], searchParams: URLSearchParams): T[] {
+  const statusParam = searchParams.get("status");
+  const status = statusParam && statusParam !== "ALL" ? parseStatus(statusParam) : null;
+
+  const yearParam = searchParams.get("year");
+  const parsedYear = yearParam && yearParam !== "ALL" ? parseInt(yearParam, 10) : NaN;
+  const year = Number.isFinite(parsedYear) ? parsedYear : null;
+
+  const q = searchParams.get("q")?.toLowerCase() || null;
+
+  return items.filter((item) => {
+    if (status && item.status !== status) return false;
+    if (year !== null && (!item.soldDate || item.soldDate.getUTCFullYear() !== year)) return false;
+    if (q && ![item.title, item.sku, item.category, item.source, item.notes].some((f) => f?.toLowerCase().includes(q))) {
+      return false;
+    }
+    return true;
+  });
+}

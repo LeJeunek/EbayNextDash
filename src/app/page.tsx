@@ -1,9 +1,8 @@
 // src/app/page.tsx
 import { redirect } from "next/navigation";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { getViewer } from "@/lib/viewer";
 
 export default async function RootPage() {
-  const session = await getServerSession(authOptions);
-  redirect(session ? "/dashboard" : "/login");
+  const viewer = await getViewer();
+  redirect(viewer ? "/dashboard" : "/login");
 }
