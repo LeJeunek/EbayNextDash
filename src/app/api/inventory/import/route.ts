@@ -1,7 +1,7 @@
 // src/app/api/inventory/import/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { demoReadOnly } from "@/lib/demo/responses";
+import { getViewer } from "@/lib/viewer";
 import { prisma } from "@/lib/prisma";
 import { parseCsv, parseDate, parseMoney, parseStatus } from "@/lib/inventory";
 
@@ -60,11 +60,10 @@ function normalizeHeader(h: string) {
  *   { fromOrders: true, days } — seed rows from already-synced eBay orders
  */
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id)
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const userId = session.user.id;
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
 

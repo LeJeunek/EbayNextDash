@@ -206,6 +206,43 @@ inventory table, so `/print/inventory?year=2026` prints just that tax year.
 - Summary cards: Total Revenue, Profit, Margin %, eBay Fees, Orders, Avg Order Value
 - Per-user — each seller sees only their own data
 
+### 🎬 Demo mode — `/demo`
+Lets anyone explore the whole app with sample data, without an eBay account.
+
+- **Enter** with the *Explore the demo* button on the login page, or link
+  straight to `/demo`. It sets a `resold_demo` cookie (HTTP-only, 4 hours) and
+  opens the dashboard. **Leave** with *Exit demo*, which goes to `/demo/exit`.
+- **What you see:** every page works. That covers the overview, listings,
+  orders, inventory (filters, search and CSV export), sales charts and the
+  printable summary. The data is a fixed set of fixtures dated relative to
+  today, so the charts always look current.
+- **What it never does:** call eBay or touch the database. The demo branch in
+  each API route returns before any Prisma query or eBay token lookup, so
+  refreshing, syncing or scripting requests in demo mode costs no API quota
+  and no database load. *Sync* answers with a notice saying it was
+  simulated.
+- **Read-only:** creating, editing, deleting and importing return `403` with
+  a short message. Nothing is saved, and one visitor can't change what the
+  next one sees.
+- **Signed-in users are unaffected.** A real session always wins over the
+  demo cookie.
+- **Turn it off** by setting `DEMO_MODE=off` (`false`, `0` and `disabled`
+  also work). The button disappears, and `/demo` redirects to `/login`.
+
+---
+
+## Tests
+
+```bash
+npm test          # run once (vitest)
+npm run test:watch
+```
+
+The suite runs without a database or eBay credentials. Its key test,
+`tests/routes/demo-api.test.ts`, swaps Prisma, the eBay token helper and
+`fetch` for traps that fail the test if they are called, then hits every API
+route as a demo visitor.
+
 ---
 
 ## Project Structure
@@ -226,18 +263,29 @@ src/
 │   │   ├── listings/page.tsx
 │   │   ├── orders/page.tsx
 │   │   └── sales/page.tsx
+│   ├── demo/route.ts             # Enter demo mode (sets cookie)
+│   ├── demo/exit/route.ts        # Leave demo mode (clears cookie)
 │   ├── print/inventory/page.tsx  # Print/PDF summary (no sidebar)
-│   ├── login/page.tsx            # eBay OAuth landing
+│   ├── login/                    # eBay OAuth landing + demo button
 │   └── globals.css               # Design tokens
 ├── components/
+│   ├── DemoBanner.tsx            # "You're viewing sample data" strip
 │   ├── Sidebar.tsx
 │   └── StatCard.tsx
 ├── lib/
 │   ├── auth.ts                   # NextAuth config with eBay provider
 │   ├── prisma.ts                 # Prisma singleton
 │   ├── inventory.ts              # Profit maths, CSV, shared query filter
+│   ├── viewer.ts                 # Who is looking: signed-in user or demo
+│   ├── page-data.ts              # Overview + print data for either viewer
+│   ├── sales-report.ts           # Sales chart/summary maths (shared)
+│   ├── demo/                     # Demo config, fixtures, API responses
 │   └── ebay.ts                   # eBay API client + helpers
 └── types/next-auth.d.ts          # Session type augmentation
+
+tests/
+├── unit/                         # Pure logic: fixtures, viewer, reports
+└── routes/                       # API routes as demo and real users
 
 prisma/
 └── schema.prisma                 # User, Account, Listing, Order, InventoryItem

@@ -1,63 +1,40 @@
 // src/app/api/listings/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { demoListings, demoReadOnly } from "@/lib/demo/responses";
+import { getViewer } from "@/lib/viewer";
 import { prisma } from "@/lib/prisma";
 import { EbayApiClient, CreateListingPayload } from "@/lib/ebay";
+import { getEbayAccessToken } from "@/lib/ebay-token";
+import { saveActiveListings, type ListingsSyncResult } from "@/lib/listings-sync";
 
 // GET /api/listings - fetch all listings for the authenticated user
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return NextResponse.json(demoListings(new URL(req.url).searchParams));
+  const userId = viewer.userId;
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status");
   const sync = searchParams.get("sync") === "true";
 
-  // Optionally sync from eBay API first
+  // Optionally sync from eBay first. Uses the Trading API: the Inventory API
+  // never returns listings created on eBay.com, so it silently found nothing.
   let syncError: string | null = null;
-  if (sync && session.accessToken) {
+  let synced: ListingsSyncResult | null = null;
+  if (sync) {
     try {
-      const client = new EbayApiClient(session.accessToken);
-      const ebayListings = await client.getListings(200);
-      // Upsert each listing into DB
-      if (ebayListings.inventoryItems) {
-        await Promise.all(
-          ebayListings.inventoryItems.map((item: any) =>
-            prisma.listing.upsert({
-              where: { ebayListingId: item.sku },
-              create: {
-                ebayListingId: item.sku,
-                userId: session.user.id,
-                title: item.product?.title || item.sku,
-                description: item.product?.description || null,
-                price: parseFloat(item.offers?.[0]?.pricingSummary?.price?.value) || 0,
-                quantity: item.availability?.shipToLocationAvailability?.quantity || 0,
-                status: "ACTIVE",
-                imageUrl: item.product?.imageUrls?.[0] || null,
-              },
-              update: {
-                title: item.product?.title || item.sku,
-                description: item.product?.description || null,
-                quantity: item.availability?.shipToLocationAvailability?.quantity || 0,
-              },
-            })
-          )
-        );
-      }
+      const client = new EbayApiClient(await getEbayAccessToken(userId));
+      synced = await saveActiveListings(userId, await client.getActiveListings());
     } catch (err) {
       console.error("eBay sync error:", err);
       syncError = err instanceof Error ? err.message : "eBay sync failed";
     }
-  } else if (sync) {
-    syncError = "No eBay access token on this session — sign in again.";
   }
 
   const listings = await prisma.listing.findMany({
     where: {
-      userId: session.user.id,
+      userId: userId,
       ...(status ? { status: status as any } : {}),
     },
     orderBy: { createdAt: "desc" },
@@ -66,15 +43,19 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  return NextResponse.json({ listings, ...(syncError ? { syncError } : {}) });
+  return NextResponse.json({
+    listings,
+    ...(syncError ? { syncError } : {}),
+    ...(synced ? { synced } : {}),
+  });
 }
 
 // POST /api/listings - create a new listing
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const viewer = await getViewer();
+  if (!viewer) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (viewer.kind === "demo") return demoReadOnly();
+  const userId = viewer.userId;
 
   const body = await req.json();
   const { title, description, price, quantity, condition, imageUrl, category } = body;
@@ -92,9 +73,9 @@ export async function POST(req: NextRequest) {
   // Push to eBay API if token available
   let ebayListingId = sku;
   let ebayError: string | null = null;
-  if (session.accessToken) {
+  {
     try {
-      const client = new EbayApiClient(session.accessToken);
+      const client = new EbayApiClient(await getEbayAccessToken(userId));
       const payload: CreateListingPayload = {
         availability: {
           shipToLocationAvailability: { quantity: quantity || 1 },
@@ -118,7 +99,7 @@ export async function POST(req: NextRequest) {
   const listing = await prisma.listing.create({
     data: {
       ebayListingId,
-      userId: session.user.id,
+      userId: userId,
       title,
       description: description || null,
       price: parseFloat(price),

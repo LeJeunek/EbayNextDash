@@ -6,7 +6,7 @@ import { prisma } from "./prisma";
 const EBAY_AUTH_URL =
   process.env.EBAY_AUTH_URL ||
   "https://auth.sandbox.ebay.com/oauth2/authorize";
-const EBAY_TOKEN_URL =
+export const EBAY_TOKEN_URL =
   process.env.EBAY_TOKEN_URL ||
   "https://api.sandbox.ebay.com/identity/v1/oauth2/token";
 
@@ -44,7 +44,7 @@ const DEFAULT_EBAY_SCOPES = [
   "https://api.ebay.com/oauth/api_scope/commerce.identity.readonly",
 ].join(" ");
 
-const EBAY_SCOPES = process.env.EBAY_SCOPES || DEFAULT_EBAY_SCOPES;
+export const EBAY_SCOPES = process.env.EBAY_SCOPES || DEFAULT_EBAY_SCOPES;
 
 /**
  * Read a credential from the environment, trimming surrounding whitespace.
@@ -68,8 +68,8 @@ function credential(name: string): string | undefined {
   return trimmed || undefined;
 }
 
-const EBAY_CLIENT_ID = credential("EBAY_CLIENT_ID");
-const EBAY_CLIENT_SECRET = credential("EBAY_CLIENT_SECRET");
+export const EBAY_CLIENT_ID = credential("EBAY_CLIENT_ID");
+export const EBAY_CLIENT_SECRET = credential("EBAY_CLIENT_SECRET");
 const EBAY_RUNAME = credential("EBAY_RUNAME");
 
 // Without a RuName the authorize params carry redirect_uri: undefined, which
@@ -107,7 +107,7 @@ console.info(
  * that names neither, which is how a wrong host went unnoticed here.
  * Pass logBody: false for responses that may carry credentials.
  */
-async function readJson(
+export async function readJson(
   response: Response,
   what: string,
   { logBody = true }: { logBody?: boolean } = {}
@@ -261,15 +261,10 @@ export const authOptions: NextAuthOptions = {
     async session({ session, user }) {
       if (session.user) {
         session.user.id = user.id;
-        // Fetch the latest account tokens for API calls
-        const account = await prisma.account.findFirst({
-          where: { userId: user.id, provider: "ebay" },
-          orderBy: { id: "desc" },
-        });
-        if (account) {
-          session.accessToken = account.access_token as string;
-          session.refreshToken = account.refresh_token as string;
-        }
+        // eBay tokens are deliberately NOT put on the session: NextAuth serves
+        // this object to the browser at /api/auth/session, and the refresh
+        // token is an ~18-month credential. Server routes get a live access
+        // token from getEbayAccessToken() in src/lib/ebay-token.ts instead.
         const dbUser = await prisma.user.findUnique({
           where: { id: user.id },
           select: { ebayUsername: true, ebayUserId: true },

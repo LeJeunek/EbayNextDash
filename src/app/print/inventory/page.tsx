@@ -1,9 +1,8 @@
 // src/app/print/inventory/page.tsx
-import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { inventoryWhere, summarize, withProfit } from "@/lib/inventory";
+import { getViewer } from "@/lib/viewer";
+import { loadPrintInventory } from "@/lib/page-data";
+import { summarize } from "@/lib/inventory";
 import { PrintControls } from "./PrintControls";
 import styles from "./print.module.css";
 
@@ -26,20 +25,15 @@ export default async function InventoryPrintPage({
 }: {
   searchParams: Record<string, string | string[] | undefined>;
 }) {
-  const session = await getServerSession(authOptions);
-  if (!session?.user?.id) redirect("/login");
+  const viewer = await getViewer();
+  if (!viewer) redirect("/login");
 
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(searchParams)) {
     if (typeof value === "string") params.set(key, value);
   }
 
-  const items = (
-    await prisma.inventoryItem.findMany({
-      where: inventoryWhere(session.user.id, params),
-      orderBy: [{ soldDate: "asc" }, { createdAt: "asc" }],
-    })
-  ).map(withProfit);
+  const { items, seller } = await loadPrintInventory(viewer, params);
 
   const summary = summarize(items);
   const year = params.get("year");
@@ -54,7 +48,6 @@ export default async function InventoryPrintPage({
     .filter(Boolean)
     .join(" · ");
 
-  const seller = session.user.ebayUsername || session.user.name || "Seller";
 
   return (
     <>

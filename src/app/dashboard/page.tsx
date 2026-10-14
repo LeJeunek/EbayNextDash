@@ -1,57 +1,33 @@
 // src/app/dashboard/page.tsx
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { startOfDay, subDays } from "date-fns";
-import { summarize, withProfit } from "@/lib/inventory";
+import { redirect } from "next/navigation";
+import { getViewer } from "@/lib/viewer";
+import { loadOverview } from "@/lib/page-data";
 import { StatCard } from "@/components/StatCard";
 import styles from "./page.module.css";
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-  const userId = session!.user.id;
+  const viewer = await getViewer();
+  if (!viewer) redirect("/login");
 
-  const since30 = startOfDay(subDays(new Date(), 29));
-
-  // The tax year the ledger summary on this page reports on.
-  const yearStart = new Date(Date.UTC(new Date().getUTCFullYear(), 0, 1));
-
-  const [
+  // Real users read from Postgres; demo visitors get the same figures from fixtures.
+  const {
     activeListings,
     totalOrders,
+    revenue30,
+    profit30,
     recentOrders,
-    salesData,
-    inventoryYtd,
-  ] = await Promise.all([
-    prisma.listing.count({ where: { userId, status: "ACTIVE" } }),
-    prisma.order.count({ where: { userId } }),
-    prisma.order.findMany({
-      where: { userId, saleDate: { gte: since30 }, status: { notIn: ["CANCELLED", "REFUNDED"] } },
-      select: { salePrice: true, profit: true },
-    }),
-    prisma.order.findMany({
-      where: { userId },
-      orderBy: { saleDate: "desc" },
-      take: 5,
-      select: { orderId: true, itemTitle: true, salePrice: true, status: true, saleDate: true },
-    }),
-    prisma.inventoryItem.findMany({
-      where: { userId, soldDate: { gte: yearStart } },
-    }),
-  ]);
-
-  const revenue30 = recentOrders.reduce((s, o) => s + o.salePrice, 0);
-  const profit30 = recentOrders.reduce((s, o) => s + o.profit, 0);
-  const ledger = summarize(inventoryYtd.map(withProfit));
+    trackedProfit,
+    year,
+  } = await loadOverview(viewer);
 
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
           <h1 className={styles.greeting}>
-            Welcome back, <em>{session!.user.ebayUsername || session!.user.name?.split(" ")[0]}</em>
+            Welcome back, <em>{viewer.user.ebayUsername || viewer.user.name?.split(" ")[0]}</em>
           </h1>
           <p className={styles.sub}>Here&apos;s what&apos;s happening with your store</p>
         </div>
@@ -87,21 +63,21 @@ export default async function DashboardPage() {
           href="/dashboard/sales"
         />
         <StatCard
-          label={`${yearStart.getUTCFullYear()} Tracked Profit`}
-          value={`$${ledger.netProfit.toFixed(2)}`}
+          label={`${year} Tracked Profit`}
+          value={`$${trackedProfit.toFixed(2)}`}
           icon="🧮"
-          accent={ledger.netProfit >= 0 ? "green" : "red"}
+          accent={trackedProfit >= 0 ? "green" : "red"}
           href="/dashboard/inventory"
         />
       </div>
 
       <section className={styles.recent}>
         <h2 className={styles.sectionTitle}>Recent Orders</h2>
-        {salesData.length === 0 ? (
+        {recentOrders.length === 0 ? (
           <div className={styles.empty}>No orders yet. Sync your eBay account to import orders.</div>
         ) : (
           <div className={styles.orderList}>
-            {salesData.map((order) => (
+            {recentOrders.map((order) => (
               <div key={order.orderId} className={styles.orderRow}>
                 <div className={styles.orderInfo}>
                   <span className={styles.orderTitle}>{order.itemTitle}</span>
