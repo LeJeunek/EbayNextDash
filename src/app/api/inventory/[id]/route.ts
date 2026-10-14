@@ -83,6 +83,10 @@ export async function PATCH(
     if (status === "SOLD" && body.soldDate === undefined && !existing.soldDate) {
       data.soldDate = new Date();
     }
+    // And a listed row always needs a listing date, so its age can be tracked.
+    if (status === "LISTED" && body.listedDate === undefined && !existing.listedDate) {
+      data.listedDate = new Date();
+    }
   }
 
   const item = await prisma.inventoryItem.update({

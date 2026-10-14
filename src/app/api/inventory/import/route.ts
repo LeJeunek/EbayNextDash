@@ -128,7 +128,8 @@ export async function POST(req: NextRequest) {
         source: record.source || null,
         notes: record.notes || null,
         purchaseDate: parseDate(record.purchaseDate),
-        listedDate: parseDate(record.listedDate),
+        listedDate:
+          parseDate(record.listedDate) ?? (status === "LISTED" ? new Date() : null),
         soldDate: soldDate ?? (status === "SOLD" ? new Date() : null),
         originalCost: parseMoney(record.originalCost, 0),
         sellPrice,

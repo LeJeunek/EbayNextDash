@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
   const status = parseStatus(body.status) ?? "LISTED";
   const sellPrice = parseMoney(body.sellPrice, null);
   const soldDate = parseDate(body.soldDate);
+  const listedDate = parseDate(body.listedDate);
 
   const item = await prisma.inventoryItem.create({
     data: {
@@ -71,7 +72,9 @@ export async function POST(req: NextRequest) {
       source: body.source?.trim() || null,
       notes: body.notes?.trim() || null,
       purchaseDate: parseDate(body.purchaseDate),
-      listedDate: parseDate(body.listedDate),
+      // A listed row with no listing date can never show how long it has
+      // been sitting, so fall back to today.
+      listedDate: listedDate ?? (status === "LISTED" ? new Date() : null),
       // Marking something sold without a date would drop it out of every
       // tax-year view, so fall back to today.
       soldDate: soldDate ?? (status === "SOLD" ? new Date() : null),
