@@ -41,9 +41,10 @@ export function Sidebar({ user, demo = false }: { user: User; demo?: boolean }) 
               href={item.href}
               className={`${styles.navItem} ${active ? styles.active : ""}`}
               aria-current={active ? "page" : undefined}
+              title={item.label}
             >
               <span className={styles.navIcon}>{item.icon}</span>
-              <span>{item.label}</span>
+              <span className={styles.navLabel}>{item.label}</span>
             </Link>
           );
         })}
