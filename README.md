@@ -12,6 +12,11 @@ A full-stack Next.js dashboard for managing your eBay listings, tracking orders 
 -->
 VIDEO_LINK_HERE
 
+
+https://github.com/user-attachments/assets/131fd890-9b61-4ac8-aa7a-de4170fd557d
+
+
+
 ---
 
 ## Try it in Claude
