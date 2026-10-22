@@ -1,6 +1,45 @@
-# eBay Seller Dashboard
+# Resold: eBay Seller Dashboard
 
-A full-stack Next.js dashboard for managing your eBay listings, tracking orders by ID, and visualizing 30-day sales profit.
+A full-stack Next.js dashboard for managing your eBay listings, tracking orders by ID, and visualizing 30-day sales profit. It also has a public **MCP server**, so you can ask Claude about the demo store in plain English.
+
+- **Live demo (no account needed):** https://ebay-next-dash.vercel.app/demo
+- **MCP endpoint:** `https://ebay-next-dash.vercel.app/api/mcp`
+
+<!--
+  Demo video: on github.com, open this README in the editor, put the cursor
+  on the line below, and drag resold-mcp-demo.mp4 into the editor. GitHub
+  uploads it and replaces the line with a link that plays inline.
+-->
+VIDEO_LINK_HERE
+
+---
+
+## Try it in Claude
+
+Resold serves a read-only [Model Context Protocol](https://modelcontextprotocol.io)
+server at `/api/mcp`. Point Claude at it and ask questions about the demo
+seller's store:
+
+**claude.ai (web, desktop and phone)**
+1. Settings → Connectors → **Add custom connector**
+2. Name: `Resold Demo` · URL: `https://ebay-next-dash.vercel.app/api/mcp`
+3. Leave the OAuth fields blank. The server has no login.
+4. In a new chat, ask *"How did the Resold demo store do in the last 30 days?"*
+
+The connector syncs to the Claude phone app, so the same question works there.
+
+**Claude Code**
+```bash
+claude mcp add --transport http --scope user resold-demo https://ebay-next-dash.vercel.app/api/mcp
+```
+
+**MCP Inspector (no Claude needed)**
+```bash
+npx @modelcontextprotocol/inspector --cli https://ebay-next-dash.vercel.app/api/mcp --transport http --method tools/list
+```
+
+Claude's answers match the dashboard. Ask for the last 30 days and you get the
+same **$486.99 revenue, $343.42 profit and 8 orders** shown on the Sales page.
 
 ---
 
@@ -13,6 +52,9 @@ A full-stack Next.js dashboard for managing your eBay listings, tracking orders 
 | Database | PostgreSQL via Prisma ORM |
 | Charts | Recharts |
 | Styling | CSS Modules |
+| AI access | MCP server (`@modelcontextprotocol/server` + Zod), Streamable HTTP |
+| Tests | Vitest |
+| Hosting | Vercel + Neon Postgres |
 
 ---
 
@@ -229,6 +271,28 @@ Lets anyone explore the whole app with sample data, without an eBay account.
 - **Turn it off** by setting `DEMO_MODE=off` (`false`, `0` and `disabled`
   also work). The button disappears, and `/demo` redirects to `/login`.
 
+### 🤖 MCP server: `/api/mcp`
+A public, read-only MCP server that lets AI assistants such as Claude query the
+**demo** store. It reads the same in-code fixtures as demo mode and never
+touches the database, eBay or a signed-in user.
+
+| Kind | Name | What it does |
+|------|------|--------------|
+| Tool | `list_inventory` | Inventory by status, oldest listing first, with cost, price, profit and days listed (`limit` 1–50) |
+| Tool | `sales_summary` | Revenue, profit, fees, shipping, order count and margin for the last N days (1–365). It reuses the Sales page maths, so the numbers match |
+| Tool | `list_orders` | Recent orders, newest first, with an optional status filter. Buyer names and emails are left out on purpose |
+| Prompt | `stale_inventory_report` | You pick it from the menu with `maxDays`; it lists items listed longer than that and asks Claude for price-drop or relist ideas |
+
+**How it's kept safe**
+- **Read-only.** Every tool carries `readOnlyHint: true`, and there is nothing to write to.
+- **Validated inputs.** Zod schemas set the limits Claude sees (for example `days` 1–365), and the tool code clamps them again.
+- **Sample data only.** A test fails if `src/lib/mcp/*` or the route ever imports Prisma, auth, the viewer or the eBay client.
+- **Small requests.** Request bodies are capped at 64 KB; larger ones get `413`.
+- **Off switch.** `DEMO_MODE=off` turns `/api/mcp` into a `404`, the same switch that turns off demo mode.
+
+Opening `/api/mcp` in a browser returns `405 Method not allowed`. That's
+expected. MCP clients send `POST` requests, and browsers send `GET`.
+
 ---
 
 ## Tests
@@ -243,6 +307,14 @@ The suite runs without a database or eBay credentials. Its key test,
 `fetch` for traps that fail the test if they are called, then hits every API
 route as a demo visitor.
 
+The MCP server has its own tests:
+- `tests/unit/mcp-demo-tools.test.ts` pins the tool outputs to known numbers
+  at a fixed date, checks that out-of-range inputs are clamped, and checks
+  that no buyer fields leak.
+- `tests/routes/mcp-api.test.ts` covers `tools/list` (200), the off switch
+  (404), the size limit (413), and the guard that the MCP code never imports
+  real-data modules.
+
 ---
 
 ## Project Structure
@@ -254,6 +326,7 @@ src/
 │   │   ├── auth/[...nextauth]/   # NextAuth route
 │   │   ├── inventory/            # GET/POST + [id], /import, /export
 │   │   ├── listings/             # GET, POST + [id] PATCH/DELETE
+│   │   ├── mcp/route.ts          # Public demo MCP server (POST)
 │   │   ├── orders/               # GET with optional eBay sync
 │   │   └── sales/                # Analytics aggregation
 │   ├── dashboard/
@@ -280,6 +353,7 @@ src/
 │   ├── page-data.ts              # Overview + print data for either viewer
 │   ├── sales-report.ts           # Sales chart/summary maths (shared)
 │   ├── demo/                     # Demo config, fixtures, API responses
+│   ├── mcp/                      # MCP server: tools, prompt, demo queries
 │   └── ebay.ts                   # eBay API client + helpers
 └── types/next-auth.d.ts          # Session type augmentation
 
